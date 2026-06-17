@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# QA Sprint Board
 
-## Getting Started
+Фронт-доска спринта для QA-команды SprutGaming — для наглядности. Линейный
+тестер заходит и сразу видит: что у него запланировано, кто над чем работает,
+и что свободно/можно взять (включая критбизнес). Все ссылки кликабельны.
 
-First, run the development server:
+> **Бэкенда нет — это чисто фронт.** Всё состояние лежит в одном файле
+> `src/data/sprint.ts`. Доску обновляет лид (через ассистента) каждое утро под
+> актуальное распределение.
+
+## Запуск
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Что внутри
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Зона | Что показывает |
+|---|---|
+| **Моё на спринт** | эпики выбранного тестера (селектор «Смотрю как») |
+| **В работе у команды** | кто что тестит — чтобы не дублировать |
+| **Можно взять** | свободные эпики; сверху критбизнес (иконка Flame) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Переключатель **CORE / eQA** (у eQA — часы смен).
+- Бейдж статуса у каждого эпика (поле `jiraStatus`, ведётся вручную).
+- Кнопки-ссылки: Jira, чек-лист, тест-канал.
 
-## Learn More
+## Как обновлять
 
-To learn more about Next.js, take a look at the following resources:
+Доска целиком описывается данными в `src/data/sprint.ts`:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `epics` — список эпиков (ключ, название, цель, приоритет, статус, ссылки,
+  флаг `critbusiness`, чья команда).
+- `assignments` — кто над чем работает: `{ memberId, epicKeys, note }`.
+  Если эпик команды не встречается ни в одном `assignment` — он попадает в
+  зону **«Можно взять»**.
+- `members` — состав команд, отпуска (`onVacation`), смены eQA (`shift`).
+- `sprint` — номер, даты, ссылка на Confluence.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Логика зон:
 
-## Deploy on Vercel
+- **Моё** = `assignments` выбранного тестера.
+- **В работе** = все назначения команды (кроме текущего зрителя).
+- **Можно взять** = эпики команды без назначений (критбизнес — наверх).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Утром лид присылает распределение/правки → ассистент редактирует
+`sprint.ts` → доска обновляется.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Архитектура
+
+```
+src/
+  data/sprint.ts      # ЕДИНЫЙ источник: эпики, команда, смены, распределение
+  lib/format.ts       # метаданные статусов/приоритетов, прогресс спринта, аватары
+  components/         # Avatar, Badges, EpicCard
+  app/page.tsx        # витрина: 3 зоны (client component)
+```
+
+## Стек
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4.
+Чистый фронт, без БД и без серверных вызовов — деплоится как статика куда угодно.

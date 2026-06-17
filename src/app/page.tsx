@@ -1,65 +1,332 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Flame, Palmtree } from "lucide-react";
+import { assignments, epics, members, sprint, type Team } from "@/data/sprint";
+import { fmtRange, sprintCompletion, sprintProgress } from "@/lib/format";
+import { Avatar } from "@/components/Avatar";
+import { EpicCard } from "@/components/EpicCard";
 
 export default function Home() {
+  // Доска чисто клиентская: показываем прелоадер, затем рендерим борду.
+  // Заодно убирает SSR-гидрацию (и dev-оверлей от инъекций браузера в DOM).
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setReady(true), 1000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const [team, setTeam] = useState<Team>("CORE");
+  // null = общая борда (вся команда). Иначе — фокус на одном тестере.
+  const [viewerId, setViewerId] = useState<string | null>(null);
+
+  const teamMembers = useMemo(() => members.filter((m) => m.team === team), [team]);
+  const teamEpics = useMemo(() => epics.filter((e) => e.team === team), [team]);
+
+  function switchTeam(t: Team) {
+    setTeam(t);
+    setViewerId(null);
+  }
+
+  const viewer = viewerId ? teamMembers.find((m) => m.id === viewerId) ?? null : null;
+
+  const epicByKey = useMemo(() => new Map(epics.map((e) => [e.key, e])), []);
+  const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), []);
+  const asgByMember = useMemo(() => new Map(assignments.map((a) => [a.memberId, a])), []);
+
+  const { dayNum, totalDays, pct: timePct } = sprintProgress(sprint, new Date());
+  // Готовность спринта считаем из реальных процентов эпиков текущей команды.
+  const completion = useMemo(() => sprintCompletion(teamEpics), [teamEpics]);
+  // Темп: насколько готовность опережает (или отстаёт от) прошедшего времени.
+  const pace = Math.round(completion - timePct);
+  const paceMeta =
+    pace >= 0
+      ? { label: "успеваем", cls: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30" }
+      : pace >= -10
+        ? { label: "впритык", cls: "bg-amber-500/15 text-amber-300 ring-amber-500/30" }
+        : { label: "отстаём", cls: "bg-rose-500/15 text-rose-300 ring-rose-500/30" };
+
+  // Зона «Моё»
+  const myAsg = viewer ? asgByMember.get(viewer.id) : undefined;
+  const myEpics = (myAsg?.epicKeys ?? [])
+    .map((k) => epicByKey.get(k))
+    .filter((e): e is NonNullable<typeof e> => Boolean(e));
+
+  // Зона «В работе у команды» — все участники команды с назначениями
+  const teamWork = teamMembers
+    .map((m) => ({ member: m, asg: asgByMember.get(m.id) }))
+    .filter((x) => x.asg && x.asg.epicKeys.length > 0);
+
+  // Зона «Можно взять» — эпики команды без назначений
+  const assignedKeys = new Set(
+    assignments
+      .filter((a) => memberById.get(a.memberId)?.team === team)
+      .flatMap((a) => a.epicKeys),
+  );
+  const freeEpics = teamEpics.filter((e) => !assignedKeys.has(e.key));
+  const critFree = freeEpics.filter((e) => e.critbusiness);
+  const normalFree = freeEpics.filter((e) => !e.critbusiness);
+
+  const ownersOf = (key: string) =>
+    assignments
+      .filter((a) => a.epicKeys.includes(key) && memberById.get(a.memberId)?.team === team)
+      .map((a) => memberById.get(a.memberId))
+      .filter((m): m is NonNullable<typeof m> => Boolean(m));
+
+  if (!ready) return <Preloader />;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="safe-pad mx-auto flex min-h-dvh w-full max-w-[1500px] flex-col pt-5">
+      {/* ===== Header ===== */}
+      <header className="mb-5 rounded-2xl border border-white/10 bg-white/3 p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-slate-100">QA Sprint Board</h1>
+              <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-300 ring-1 ring-inset ring-sky-500/30">
+                Спринт {sprint.number}
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-slate-400">
+              {fmtRange(sprint)} · день {dayNum} из {totalDays} ·{" "}
+              <a
+                href={sprint.confluenceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sky-400 hover:underline"
+              >
+                план в Confluence
+              </a>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Team toggle */}
+            <div className="flex rounded-lg border border-white/10 bg-[#0b0f17] p-0.5">
+              {(["CORE", "eQA"] as Team[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => switchTeam(t)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                    team === t ? "bg-sky-500 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        {/* Progress — реальная готовность из данных эпиков vs прошедшее время */}
+        <div className="mt-4">
+          <div className="mb-1.5 flex items-center justify-between gap-2 text-[11px]">
+            <span className="text-slate-500">Готовность спринта · {team}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold tabular-nums text-slate-300">{completion}%</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1 ring-inset ${paceMeta.cls}`}
+              >
+                {paceMeta.label} · {pace >= 0 ? "+" : ""}{pace}%
+              </span>
+            </div>
+          </div>
+          <div className="relative h-2 w-full overflow-hidden rounded-full bg-white/5">
+            <div
+              className="h-full rounded-full bg-linear-to-r from-sky-500 to-emerald-400"
+              style={{ width: `${completion}%` }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {/* Маркер ожидаемого темпа: где «должны быть» по прошедшему времени */}
+            <div
+              className="absolute top-0 h-full w-0.5 bg-white/70"
+              style={{ left: `${timePct}%` }}
+              title={`Прошло времени: ${Math.round(timePct)}%`}
+            />
+          </div>
         </div>
-      </main>
+
+        {/* Легенда цветов карточек */}
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <LegendItem swatch="border-white/20 bg-white/10" label="Стандартные" />
+          <LegendItem swatch="border-emerald-500/50 bg-emerald-500/15" label="Цель спринта закрыта" />
+          <LegendItem swatch="border-violet-500/50 bg-violet-500/15" label="Особое внимание" />
+          <LegendItem swatch="border-red-500/50 bg-red-500/15" label="Критбизнес" />
+        </div>
+
+        {/* Viewer selector */}
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500">Смотрю как:</span>
+          <button
+            onClick={() => setViewerId(null)}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              !viewer
+                ? "bg-white/10 text-white ring-1 ring-inset ring-white/20"
+                : "text-slate-400 hover:bg-white/5"
+            }`}
+          >
+            Вся команда
+          </button>
+          {teamMembers.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setViewerId(m.id)}
+              className={`flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 text-xs transition ${
+                viewer?.id === m.id
+                  ? "bg-white/10 text-white ring-1 ring-inset ring-white/20"
+                  : "text-slate-400 hover:bg-white/5"
+              }`}
+            >
+              <Avatar id={m.id} name={m.name} size="sm" dimmed={m.onVacation} />
+              {m.name.split(" ")[0]}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {viewer ? (
+        /* ===== Фокус на одном тестере ===== */
+        <Zone
+          title={`Задачи · ${viewer.name}`}
+          subtitle={viewer.shift ? `смена ${viewer.shift}` : "на спринт"}
+          count={myEpics.length}
+          accent="sky"
+        >
+          {viewer.onVacation && (
+            <Empty>
+              <span className="inline-flex items-center gap-1.5">
+                <Palmtree className="h-4 w-4 text-amber-400" />В отпуске
+              </span>
+            </Empty>
+          )}
+          {!viewer.onVacation && myEpics.length === 0 && (
+            <Empty>Пока ничего не назначено</Empty>
+          )}
+          {myEpics.map((e) => (
+            <EpicCard key={e.key} epic={e} note={myAsg?.note} />
+          ))}
+        </Zone>
+      ) : (
+        /* ===== Общая борда ===== */
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          {/* В работе у команды */}
+          <div className="lg:col-span-2">
+            <Zone title="В работе у команды" subtitle="кто что тестит" count={teamWork.length} accent="amber">
+              {teamWork.length === 0 && <Empty>Нет активных назначений</Empty>}
+              {teamWork.map(({ member, asg }) => (
+                <div key={member.id} className="space-y-2">
+                  <div className="flex items-center gap-2 px-0.5">
+                    <Avatar id={member.id} name={member.name} size="sm" dimmed={member.onVacation} />
+                    <span className="text-xs font-semibold text-slate-300">{member.name}</span>
+                    {member.shift && <span className="text-[10px] text-slate-500">{member.shift}</span>}
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                    {asg!.epicKeys
+                      .map((k) => epicByKey.get(k))
+                      .filter((e): e is NonNullable<typeof e> => Boolean(e))
+                      .map((e) => (
+                        <EpicCard key={member.id + e.key} epic={e} />
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </Zone>
+          </div>
+
+          {/* Можно взять */}
+          <Zone title="Можно взять" subtitle="свободно / пиши лиду" count={freeEpics.length} accent="emerald">
+            {critFree.length > 0 && (
+              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-300">
+                <Flame className="h-3.5 w-3.5" />
+                Критбизнес — брать первым
+              </div>
+            )}
+            {critFree.map((e) => (
+              <EpicCard key={e.key} epic={e} owners={ownersOf(e.key)} />
+            ))}
+            {normalFree.length === 0 && critFree.length === 0 && <Empty>Свободных эпиков нет</Empty>}
+            {normalFree.map((e) => (
+              <EpicCard key={e.key} epic={e} />
+            ))}
+          </Zone>
+        </div>
+      )}
+
+      <footer className="mt-auto pt-6 text-center text-[11px] text-slate-600">
+        сделано с любовью и багами M1
+      </footer>
+    </div>
+  );
+}
+
+function Zone({
+  title,
+  subtitle,
+  count,
+  accent,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  count: number;
+  accent: "sky" | "amber" | "emerald";
+  children: React.ReactNode;
+}) {
+  const accentCls = {
+    sky: "text-sky-300",
+    amber: "text-amber-300",
+    emerald: "text-emerald-300",
+  }[accent];
+  return (
+    <section className="flex flex-col rounded-2xl border border-white/10 bg-white/2">
+      <div className="flex items-baseline justify-between border-b border-white/10 px-4 py-3">
+        <div>
+          <h2 className={`text-sm font-bold ${accentCls}`}>{title}</h2>
+          {subtitle && <p className="text-[11px] text-slate-500">{subtitle}</p>}
+        </div>
+        <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs font-semibold text-slate-400">
+          {count}
+        </span>
+      </div>
+      <div className="flex flex-col gap-2.5 p-3 lg:max-h-[calc(100vh-260px)] lg:overflow-auto">{children}</div>
+    </section>
+  );
+}
+
+function Preloader() {
+  return (
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6">
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-bold text-slate-100">QA Sprint Board</h1>
+          <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-300 ring-1 ring-inset ring-sky-500/30">
+            Спринт {sprint.number}
+          </span>
+        </div>
+        <p className="text-xs text-slate-500">SprutGaming · QA</p>
+      </div>
+
+      <div className="h-1.5 w-56 max-w-[70vw] overflow-hidden rounded-full bg-white/10">
+        <div className="animate-loader-fill h-full rounded-full bg-linear-to-r from-sky-500 to-emerald-400" />
+      </div>
+
+      <p className="animate-pulse text-xs text-slate-500">Собираем спринт…</p>
+    </div>
+  );
+}
+
+function LegendItem({ swatch, label }: { swatch: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`h-3 w-3 rounded-sm border ${swatch}`} />
+      <span className="text-[11px] text-slate-400">{label}</span>
+    </div>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-dashed border-white/10 px-3 py-8 text-center text-xs text-slate-600">
+      {children}
     </div>
   );
 }

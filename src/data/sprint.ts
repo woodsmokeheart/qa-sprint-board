@@ -1,0 +1,401 @@
+// Источник данных прототипа QA Sprint Board.
+// Сид собран из реальной страницы "Спринт 10 // 16.06–29.06" в Confluence
+// и распределения из Slack-каналов #sprut-qa и #внешняя-команда-qa.
+//
+// В проде это место заменит:
+//  - план/распределение -> своя БД (витрина = источник правды);
+//  - jiraStatus -> live-запрос в Jira по ключу.
+
+export type Team = "CORE" | "eQA";
+
+export type Priority = "highest" | "high" | "none";
+
+// Реальные статусы воркфлоу Jira (сверено live по ключам 17.06.2026).
+// В проде придёт live-запросом из Jira по ключу эпика.
+export type JiraStatus =
+  | "analysis"
+  | "backlog"
+  | "in_development"
+  | "block_tests"
+  | "rf_qa"
+  | "qa_testing"
+  | "rf_release"
+  | "done";
+
+export interface Member {
+  id: string;
+  name: string; // отображаемое имя
+  slackId: string; // U... для генерации текста в Slack
+  team: Team;
+  role?: string; // Lead, Trainee и т.п.
+  onVacation?: boolean;
+  shift?: string; // часы смены (для eQA)
+}
+
+export interface Epic {
+  key: string; // SD-6457
+  title: string;
+  goal: string; // цель словами (из Confluence)
+  priority: Priority;
+  team: Team; // чья это в первую очередь зона (CORE/eQA)
+  critbusiness?: boolean;
+  bonus?: boolean; // эпик из группы «Бонусы» (общий срок ретестов на stage)
+  goalDone?: boolean; // цель спринта по эпику выполнена (карточка станет зелёной)
+  jiraStatus: JiraStatus; // мок live-статуса
+  // Готовность из последнего отчёта QA. Две независимые шкалы:
+  //  - firstPass: % первой проходки чек-листа (100 = проходка завершена);
+  //  - retest: % ретестов после завершения первой проходки.
+  // Если в отчёте процент не указан — поле не заполняется (на доске 0%).
+  progress?: { firstPass?: number; retest?: number };
+  links: {
+    jira: string;
+    checklist?: string;
+    testChannel?: string; // ссылка на slack-канал теста эпика
+  };
+}
+
+// Назначение: кто над чем работает + что именно делает.
+export interface Assignment {
+  memberId: string;
+  epicKeys: string[];
+  note?: string; // "первая проходка", "ретесты", "ознакомление"...
+}
+
+export interface Sprint {
+  number: number;
+  start: string; // ISO
+  endInclusive: string; // ISO
+  confluenceUrl: string;
+}
+
+const JIRA = "https://sprutgaming.atlassian.net/browse";
+
+export const sprint: Sprint = {
+  number: 10,
+  start: "2026-06-16",
+  endInclusive: "2026-06-29",
+  confluenceUrl: "https://sprutgaming.atlassian.net/wiki/x/AYCeJw",
+};
+
+export const members: Member[] = [
+  // --- CORE TEAM ---
+  { id: "denisk", name: "Denis K", slackId: "U0A0JB7CF0D", team: "CORE", role: "Lead QA" },
+  { id: "anton", name: "Anton K", slackId: "U0A3BD367H7", team: "CORE", onVacation: true },
+  { id: "yaroslav", name: "Yaroslav S", slackId: "U0A0FCLNR35", team: "CORE" },
+  { id: "aleksey", name: "Aleksey Ch", slackId: "U0A0KNTM8ES", team: "CORE" },
+  { id: "denisv", name: "Denis V", slackId: "U0AHRFQJX51", team: "CORE", role: "Зам" },
+  { id: "veronika", name: "Veronika S", slackId: "U0AH12E8ANN", team: "CORE" },
+  { id: "daria", name: "Daria A", slackId: "U0A50DNBD1R", team: "CORE" },
+  { id: "julia", name: "Julia T", slackId: "U0B1X5JUQP8", team: "CORE", role: "Trainee" },
+  { id: "natalia", name: "Natalia", slackId: "U0B7PUX9KHP", team: "CORE" },
+  { id: "vasiliy", name: "Vasiliy K", slackId: "U0B9BAMGY2C", team: "CORE" },
+  // --- eQA TEAM ---
+  { id: "edvard", name: "Edvard K", slackId: "U0AP1L6RJKV", team: "eQA", shift: "19:00–01:00" },
+  { id: "alexander", name: "Alexander P", slackId: "U0B23TV8BBM", team: "eQA", onVacation: true },
+  { id: "mariia", name: "Mariia M", slackId: "U0AQ5QB13AL", team: "eQA", shift: "18:00–23:00" },
+  { id: "egor", name: "Egor", slackId: "U0APBKGJBT6", team: "eQA", shift: "20:00–00:00" },
+  { id: "daniil", name: "Daniil I", slackId: "U0AQPTZQZJB", team: "eQA", shift: "12:00–17:00" },
+];
+
+export const epics: Epic[] = [
+  // ===== CORE: план спринта 10 =====
+  {
+    key: "SD-6457",
+    title: "Интеграция SMS провайдера MEX10",
+    goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 100, retest: 68.7 },
+    links: { jira: `${JIRA}/SD-6457` },
+  },
+  {
+    key: "SD-3881",
+    title: "Авторизация через внешние сервисы или логин и пароль",
+    goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "block_tests",
+    links: { jira: `${JIRA}/SD-3881` },
+  },
+  {
+    key: "BF-2209",
+    title: "Вёрстка редизайна Профиля пользователя",
+    goal: "Дальнейшая проходка по чек-листу.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 100, retest: 96 },
+    links: { jira: `${JIRA}/BF-2209` },
+  },
+  {
+    key: "SD-4988",
+    title: "Управление группами аватаров",
+    goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    links: { jira: `${JIRA}/SD-4988` },
+  },
+  {
+    key: "SD-2460",
+    bonus: true,
+    title: "Комплексное тестирование модуля Bonus Templates",
+    goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "in_development",
+    links: { jira: `${JIRA}/SD-2460`, testChannel: "https://sprutgamingtech.slack.com/archives/C0ATHE2F0KB" },
+  },
+  {
+    key: "SD-2463",
+    bonus: true,
+    title: "Комплексное тестирование Personal Bonuses",
+    goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 95 },
+    links: { jira: `${JIRA}/SD-2463`, testChannel: "https://sprutgamingtech.slack.com/archives/C0ATHE2F0KB" },
+  },
+  {
+    key: "SD-2462",
+    bonus: true,
+    title: "Комплексное тестирование Cashback Bonus",
+    goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 100, retest: 95 },
+    links: { jira: `${JIRA}/SD-2462` },
+  },
+  {
+    key: "SD-6176",
+    bonus: true,
+    title: "Комплексное тестирование Sportsbook cashback template",
+    goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "in_development",
+    links: { jira: `${JIRA}/SD-6176` },
+  },
+  {
+    key: "SD-5870",
+    title: "Комплексное тестирование Game Service",
+    goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "rf_release",
+    progress: { firstPass: 100, retest: 100 },
+    links: { jira: `${JIRA}/SD-5870` },
+  },
+  {
+    key: "SD-2521",
+    bonus: true,
+    title: "Комплексное тестирование модуля Sportsbook Personal Bonus",
+    goal: "Ознакомление, формирование чек-листа, первая проходка.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 74 },
+    links: { jira: `${JIRA}/SD-2521` },
+  },
+  {
+    key: "SD-2520",
+    bonus: true,
+    title: "Комплексное тестирование модуля Sportsbook Bonus Template",
+    goal: "Ознакомление, формирование чек-листа, первая проходка.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 91 },
+    links: { jira: `${JIRA}/SD-2520` },
+  },
+  {
+    key: "BF-2804",
+    title: "Вёрстка редизайна Loyalty Program",
+    goal: "Ретесты по доступным задачам.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 100, retest: 84 },
+    links: { jira: `${JIRA}/BF-2804` },
+  },
+  {
+    key: "BF-2145",
+    title: "Обновление дизайна главной страницы",
+    goal: "Ретесты (отработать по задачам, доступным для теста).",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 100, retest: 77 },
+    links: { jira: `${JIRA}/BF-2145` },
+  },
+  {
+    key: "BF-2809",
+    title: "Вёрстка редизайна Achievements",
+    goal: "Завершить разработку, протестировать на стейдже (первая проходка).",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 100 },
+    links: { jira: `${JIRA}/BF-2809` },
+  },
+  {
+    key: "BF-2970",
+    title: "Fortune Wheel // Обновление колеса фортуны",
+    goal: "Протестировать (первая проходка).",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 39 },
+    links: { jira: `${JIRA}/BF-2970` },
+  },
+  {
+    key: "SD-4767",
+    title: "Risk-Management — доработки и минорные баги",
+    goal: "Проверить валидность задач и завершить разработку по оставшимся.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 100, retest: 80 },
+    links: { jira: `${JIRA}/SD-4767`, testChannel: "https://sprutgamingtech.slack.com/archives/C0A8SDSP0TD" },
+  },
+  {
+    key: "SD-2896",
+    title: "Tournament Service // Миграция на Golang",
+    goal: "Сделать смоки на демо.",
+    priority: "highest",
+    team: "CORE",
+    goalDone: true,
+    jiraStatus: "done",
+    progress: { firstPass: 100, retest: 100 },
+    links: { jira: `${JIRA}/SD-2896` },
+  },
+  {
+    key: "SD-4081",
+    title: "DEV: Комплексное тестирование Tournaments",
+    goal: "Сделать смоки на демо.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    progress: { firstPass: 100, retest: 99 },
+    links: { jira: `${JIRA}/SD-4081` },
+  },
+  // ===== Свободные (никому пока не назначены) =====
+  {
+    key: "SD-7002",
+    title: "Stage // Kubernetes // Смок-тестирование Kubernetes",
+    goal: "Смок-тестирование кубера на стейдже.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    links: { jira: `${JIRA}/SD-7002` },
+  },
+  {
+    key: "BF-2816",
+    title: "Редизайн карточки игры 1.0",
+    goal: "Протестировать и закрыть эпик на стейдж.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "rf_qa",
+    links: { jira: `${JIRA}/BF-2816` },
+  },
+  {
+    key: "BF-2428",
+    title: "Registration // Передавать captcha_token в /register и /attempt",
+    goal: "Завершить разработку, протестировать на стейдже.",
+    priority: "high",
+    team: "CORE",
+    jiraStatus: "rf_qa",
+    links: { jira: `${JIRA}/BF-2428` },
+  },
+  {
+    key: "SPS-424",
+    title: "SEO: исправить технические ошибки на сайте",
+    goal: "Протестировать SPS-427 и SPS-431.",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "analysis",
+    links: { jira: `${JIRA}/SPS-424` },
+  },
+  // ===== Критбизнес =====
+  {
+    key: "BF-3193",
+    title: "[Risk Service] Технические данные по срабатыванию Duplicates/Proxy",
+    goal: "Проверить на стейдже; если ок — в готово. Взять при первой возможности.",
+    priority: "highest",
+    team: "CORE",
+    critbusiness: true,
+    goalDone: true,
+    jiraStatus: "done",
+    links: { jira: `${JIRA}/BF-3193` },
+  },
+  {
+    key: "SD-2854",
+    title: "Prod // Проблема в работе аккаунтов во вкладке Accounts",
+    goal: "Реопен. Взять при первой возможности.",
+    priority: "highest",
+    team: "CORE",
+    critbusiness: true,
+    jiraStatus: "rf_qa",
+    links: { jira: `${JIRA}/SD-2854` },
+  },
+  {
+    key: "BR-18",
+    title: "New project latina casino // Stage: Provider key connection",
+    goal: "Протестировать и при необходимости доработать. Тест со стороны бизнеса.",
+    priority: "highest",
+    team: "CORE",
+    critbusiness: true,
+    goalDone: true,
+    jiraStatus: "done",
+    links: { jira: `${JIRA}/BR-18` },
+  },
+  // ===== eQA: вне доски SPRUT, сборка чек-листов + первая проходка =====
+  {
+    key: "BF-2806",
+    title: "Вёрстка редизайна Jackpot",
+    goal: "Собрать чек-лист, первая проходка с оформлением багов.",
+    priority: "highest",
+    team: "eQA",
+    jiraStatus: "block_tests",
+    links: { jira: `${JIRA}/BF-2806` },
+  },
+  {
+    key: "BF-2807",
+    title: "Вёрстка редизайна Tournaments",
+    goal: "Собрать чек-лист, первая проходка с оформлением багов.",
+    priority: "highest",
+    team: "eQA",
+    jiraStatus: "rf_qa",
+    links: { jira: `${JIRA}/BF-2807`, checklist: "https://sprutgaming.atlassian.net/wiki/x/AQD9Jw" },
+  },
+  {
+    key: "BF-2805",
+    title: "Вёрстка редизайна VIP Club",
+    goal: "Проверить чек-лист на актуальность, при необходимости дополнить; первая проходка.",
+    priority: "highest",
+    team: "eQA",
+    jiraStatus: "qa_testing",
+    links: { jira: `${JIRA}/BF-2805`, checklist: "https://sprutgaming.atlassian.net/wiki/x/A4CqIw" },
+  },
+];
+
+// Распределение на сегодня (17/06). В проде редактируется в админке.
+export const assignments: Assignment[] = [
+  { memberId: "denisk", epicKeys: ["SD-7002"], note: "смок-тестирование Kubernetes на стейдже" },
+  { memberId: "yaroslav", epicKeys: ["SD-2896", "SD-4081", "SD-4767"], note: "миграция + комплекс + доработки риска" },
+  { memberId: "aleksey", epicKeys: ["SD-2460", "SD-2463"], note: "тест-эпика-бонусы" },
+  { memberId: "denisv", epicKeys: ["SD-5870", "SD-2462", "SD-6176"], note: "комплекс game + кэшбэки" },
+  { memberId: "veronika", epicKeys: ["BF-2209"], note: "дальнейшая проходка по чек-листу (связ. SD-3881 / SD-4988)" },
+  { memberId: "daria", epicKeys: ["BF-2804", "BF-2145", "BF-2809"], note: "ретесты + первая проходка Achievements" },
+  { memberId: "julia", epicKeys: ["SD-2520"], note: "ознакомление, чек-лист, первая проходка" },
+  { memberId: "natalia", epicKeys: ["SD-2521"], note: "ознакомление, чек-лист, первая проходка" },
+  { memberId: "vasiliy", epicKeys: ["SD-6457", "BF-2970"], note: "" },
+  // eQA
+  { memberId: "edvard", epicKeys: ["BF-2806", "BF-2807", "BF-2805"], note: "сборка чек-листов + первая проходка" },
+  { memberId: "mariia", epicKeys: ["BF-2806", "BF-2807", "BF-2805"], note: "сборка чек-листов + первая проходка" },
+  { memberId: "egor", epicKeys: ["BF-2806", "BF-2807", "BF-2805"], note: "сборка чек-листов + первая проходка" },
+  { memberId: "daniil", epicKeys: ["BF-2806", "BF-2807", "BF-2805"], note: "сборка чек-листов + первая проходка" },
+];

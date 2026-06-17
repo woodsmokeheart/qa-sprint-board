@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b0f17;
+  --foreground: #e7ecf3;
 }
 
 @theme inline {
@@ -12,15 +12,54 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, Arial, sans-serif;
+}
+
+/* Тонкий скролл для тёмной темы */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3343 transparent;
+}
+
+/* Безопасные зоны мобильных (вырез/чёлка, домашний индикатор, жестовая полоса).
+   На обычных экранах берётся стандартный отступ, на устройствах с вырезом —
+   увеличивается до размера insets, чтобы контент не уезжал под панели. */
+.safe-pad {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+@media (min-width: 640px) {
+  .safe-pad {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
+
+/* Прелоадер: полоса заполняется по мере загрузки */
+@keyframes loader-fill {
+  0% {
+    width: 8%;
+  }
+  60% {
+    width: 70%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.animate-loader-fill {
+  width: 100%;
+  animation: loader-fill 1s ease-in-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-loader-fill {
+    animation: none;
+  }
 }
