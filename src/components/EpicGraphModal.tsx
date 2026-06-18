@@ -207,7 +207,7 @@ export function EpicGraphModal({
                 // Дешёвое «гало» без shadowBlur (blur убивал FPS на 165 нодах).
                 ctx.globalAlpha = 0.22;
                 ctx.beginPath();
-                ctx.arc(n.x, n.y, r * 2.1, 0, 2 * Math.PI);
+                ctx.arc(n.x, n.y, r * 1.4, 0, 2 * Math.PI);
                 ctx.fillStyle = n.color;
                 ctx.fill();
                 ctx.globalAlpha = 1;
