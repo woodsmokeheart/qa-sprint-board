@@ -22,10 +22,6 @@ export const priorityMeta: Record<Priority, { label: string; chip: string } | nu
   none: null,
 };
 
-export function projectOf(key: string): string {
-  return key.split("-")[0] ?? "";
-}
-
 const clampPct = (n: number) => Math.min(Math.max(n, 0), 100);
 
 // Готовность одного эпика по жизненному циклу:

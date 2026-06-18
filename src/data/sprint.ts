@@ -41,6 +41,7 @@ export interface Epic {
   critbusiness?: boolean;
   bonus?: boolean; // эпик из группы «Бонусы» (общий срок ретестов на stage)
   goalDone?: boolean; // цель спринта по эпику выполнена (карточка станет зелёной)
+  task?: boolean; // одиночная задача, а не эпик — без шкалы проходки/ретестов
   jiraStatus: JiraStatus; // мок live-статуса
   // Готовность из последнего отчёта QA. Две независимые шкалы:
   //  - firstPass: % первой проходки чек-листа (100 = проходка завершена);
@@ -106,7 +107,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "qa_testing",
-    progress: { firstPass: 100, retest: 68.7 },
+    progress: { firstPass: 100, retest: 68 },
     links: { jira: `${JIRA}/SD-6457` },
   },
   {
@@ -145,6 +146,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "in_development",
+    progress: { firstPass: 100, retest: 20 },
     links: { jira: `${JIRA}/SD-2460`, testChannel: "https://sprutgamingtech.slack.com/archives/C0ATHE2F0KB" },
   },
   {
@@ -177,6 +179,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "in_development",
+    progress: { firstPass: 95 },
     links: { jira: `${JIRA}/SD-6176` },
   },
   {
@@ -197,7 +200,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "qa_testing",
-    progress: { firstPass: 74 },
+    progress: { firstPass: 83 },
     links: { jira: `${JIRA}/SD-2521` },
   },
   {
@@ -208,7 +211,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "qa_testing",
-    progress: { firstPass: 91 },
+    progress: { firstPass: 96 },
     links: { jira: `${JIRA}/SD-2520` },
   },
   {
@@ -218,7 +221,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "qa_testing",
-    progress: { firstPass: 100, retest: 84 },
+    progress: { firstPass: 100, retest: 90 },
     links: { jira: `${JIRA}/BF-2804` },
   },
   {
@@ -228,7 +231,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "qa_testing",
-    progress: { firstPass: 100, retest: 77 },
+    progress: { firstPass: 100, retest: 78 },
     links: { jira: `${JIRA}/BF-2145` },
   },
   {
@@ -248,8 +251,17 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "qa_testing",
-    progress: { firstPass: 39 },
+    progress: { firstPass: 82 },
     links: { jira: `${JIRA}/BF-2970` },
+  },
+  {
+    key: "SD-3926",
+    title: "DEV // Комплексное тестирование Fortune Wheel",
+    goal: "Протестировать (первая проходка).",
+    priority: "highest",
+    team: "CORE",
+    jiraStatus: "qa_testing",
+    links: { jira: `${JIRA}/SD-3926` },
   },
   {
     key: "SD-4767",
@@ -258,7 +270,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     jiraStatus: "qa_testing",
-    progress: { firstPass: 100, retest: 80 },
+    progress: { firstPass: 100, retest: 85 },
     links: { jira: `${JIRA}/SD-4767`, testChannel: "https://sprutgamingtech.slack.com/archives/C0A8SDSP0TD" },
   },
   {
@@ -319,6 +331,26 @@ export const epics: Epic[] = [
     jiraStatus: "analysis",
     links: { jira: `${JIRA}/SPS-424` },
   },
+  {
+    key: "BF-3231",
+    title: "Сделать возможной перекраску витрины за 1 день",
+    goal: "Завершить разработку и протестировать.",
+    priority: "high",
+    team: "CORE",
+    task: true,
+    jiraStatus: "rf_qa",
+    links: { jira: `${JIRA}/BF-3231` },
+  },
+  {
+    key: "BF-3160",
+    title: "BetHub // Проверить загрузку и обработку локали PT-BH",
+    goal: "Закрыть фронт и протестировать.",
+    priority: "high",
+    team: "CORE",
+    task: true,
+    jiraStatus: "rf_qa",
+    links: { jira: `${JIRA}/BF-3160` },
+  },
   // ===== Критбизнес =====
   {
     key: "BF-3193",
@@ -327,19 +359,10 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     critbusiness: true,
+    task: true,
     goalDone: true,
     jiraStatus: "done",
     links: { jira: `${JIRA}/BF-3193` },
-  },
-  {
-    key: "SD-2854",
-    title: "Prod // Проблема в работе аккаунтов во вкладке Accounts",
-    goal: "Реопен. Взять при первой возможности.",
-    priority: "highest",
-    team: "CORE",
-    critbusiness: true,
-    jiraStatus: "rf_qa",
-    links: { jira: `${JIRA}/SD-2854` },
   },
   {
     key: "BR-18",
@@ -348,6 +371,7 @@ export const epics: Epic[] = [
     priority: "highest",
     team: "CORE",
     critbusiness: true,
+    task: true,
     goalDone: true,
     jiraStatus: "done",
     links: { jira: `${JIRA}/BR-18` },
@@ -392,7 +416,7 @@ export const assignments: Assignment[] = [
   { memberId: "daria", epicKeys: ["BF-2804", "BF-2145", "BF-2809"], note: "ретесты + первая проходка Achievements" },
   { memberId: "julia", epicKeys: ["SD-2520"], note: "ознакомление, чек-лист, первая проходка" },
   { memberId: "natalia", epicKeys: ["SD-2521"], note: "ознакомление, чек-лист, первая проходка" },
-  { memberId: "vasiliy", epicKeys: ["SD-6457", "BF-2970"], note: "" },
+  { memberId: "vasiliy", epicKeys: ["SD-6457", "BF-2970", "SD-3926"], note: "" },
   // eQA
   { memberId: "edvard", epicKeys: ["BF-2806", "BF-2807", "BF-2805"], note: "сборка чек-листов + первая проходка" },
   { memberId: "mariia", epicKeys: ["BF-2806", "BF-2807", "BF-2805"], note: "сборка чек-листов + первая проходка" },

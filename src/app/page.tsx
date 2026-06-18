@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Flame, Palmtree } from "lucide-react";
+import { Palmtree } from "lucide-react";
 import { assignments, epics, members, sprint, type Team } from "@/data/sprint";
 import { fmtRange, sprintCompletion, sprintProgress } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { EpicCard } from "@/components/EpicCard";
+
+// Спец-режим зрителя: показать только свободный пул «Можно взять».
+const FREE_VIEW = "__free__";
 
 export default function Home() {
   // Доска чисто клиентская: показываем прелоадер, затем рендерим борду.
@@ -28,7 +31,11 @@ export default function Home() {
     setViewerId(null);
   }
 
-  const viewer = viewerId ? teamMembers.find((m) => m.id === viewerId) ?? null : null;
+  const viewer =
+    viewerId && viewerId !== FREE_VIEW
+      ? teamMembers.find((m) => m.id === viewerId) ?? null
+      : null;
+  const freeView = viewerId === FREE_VIEW;
 
   const epicByKey = useMemo(() => new Map(epics.map((e) => [e.key, e])), []);
   const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), []);
@@ -66,6 +73,10 @@ export default function Home() {
   const freeEpics = teamEpics.filter((e) => !assignedKeys.has(e.key));
   const critFree = freeEpics.filter((e) => e.critbusiness);
   const normalFree = freeEpics.filter((e) => !e.critbusiness);
+
+  // Сколько карточек у конкретного тестера (только реально существующие эпики).
+  const workCountOf = (memberId: string) =>
+    (asgByMember.get(memberId)?.epicKeys ?? []).filter((k) => epicByKey.has(k)).length;
 
   const ownersOf = (key: string) =>
     assignments
@@ -155,17 +166,32 @@ export default function Home() {
 
         {/* Viewer selector */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-slate-500">Смотрю как:</span>
           <button
             onClick={() => setViewerId(null)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              !viewer
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+              !viewer && !freeView
                 ? "bg-white/10 text-white ring-1 ring-inset ring-white/20"
                 : "text-slate-400 hover:bg-white/5"
             }`}
           >
             Вся команда
+            <CountBadge n={assignedKeys.size} />
           </button>
+          {normalFree.length > 0 && (
+            <button
+              onClick={() => setViewerId(FREE_VIEW)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                freeView
+                  ? "bg-emerald-500/20 text-emerald-100 ring-1 ring-inset ring-emerald-500/40"
+                  : "text-emerald-300/80 hover:bg-emerald-500/10"
+              }`}
+            >
+              Можно взять
+              <span className="rounded-full bg-emerald-500/25 px-1.5 text-[10px] font-bold tabular-nums text-emerald-100">
+                {normalFree.length}
+              </span>
+            </button>
+          )}
           {teamMembers.map((m) => (
             <button
               key={m.id}
@@ -178,6 +204,7 @@ export default function Home() {
             >
               <Avatar id={m.id} name={m.name} size="sm" dimmed={m.onVacation} />
               {m.name.split(" ")[0]}
+              <CountBadge n={workCountOf(m.id)} />
             </button>
           ))}
         </div>
@@ -205,47 +232,55 @@ export default function Home() {
             <EpicCard key={e.key} epic={e} note={myAsg?.note} />
           ))}
         </Zone>
+      ) : freeView ? (
+        /* ===== Свободный пул «Можно взять» ===== */
+        <Zone
+          title="Можно взять"
+          subtitle="свободно / пиши лиду"
+          count={normalFree.length}
+          accent="emerald"
+          bodyClassName="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          {normalFree.length === 0 && <Empty>Свободных задач нет</Empty>}
+          {normalFree.map((e) => (
+            <EpicCard key={e.key} epic={e} />
+          ))}
+        </Zone>
       ) : (
-        /* ===== Общая борда ===== */
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {/* В работе у команды */}
-          <div className="lg:col-span-2">
-            <Zone title="В работе у команды" subtitle="кто что тестит" count={teamWork.length} accent="amber">
-              {teamWork.length === 0 && <Empty>Нет активных назначений</Empty>}
-              {teamWork.map(({ member, asg }) => (
-                <div key={member.id} className="space-y-2">
-                  <div className="flex items-center gap-2 px-0.5">
-                    <Avatar id={member.id} name={member.name} size="sm" dimmed={member.onVacation} />
-                    <span className="text-xs font-semibold text-slate-300">{member.name}</span>
-                    {member.shift && <span className="text-[10px] text-slate-500">{member.shift}</span>}
-                  </div>
-                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                    {asg!.epicKeys
-                      .map((k) => epicByKey.get(k))
-                      .filter((e): e is NonNullable<typeof e> => Boolean(e))
-                      .map((e) => (
-                        <EpicCard key={member.id + e.key} epic={e} />
-                      ))}
-                  </div>
-                </div>
+        /* ===== Общая борда: критбизнес закреплён сверху + работа команды ===== */
+        <div className="space-y-4">
+          {critFree.length > 0 && (
+            <Zone
+              title="Критбизнес — брать первым"
+              subtitle="закрыть в первую очередь"
+              count={critFree.length}
+              accent="rose"
+              bodyClassName="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              {critFree.map((e) => (
+                <EpicCard key={e.key} epic={e} owners={ownersOf(e.key)} />
               ))}
             </Zone>
-          </div>
+          )}
 
-          {/* Можно взять */}
-          <Zone title="Можно взять" subtitle="свободно / пиши лиду" count={freeEpics.length} accent="emerald">
-            {critFree.length > 0 && (
-              <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-red-300">
-                <Flame className="h-3.5 w-3.5" />
-                Критбизнес — брать первым
+          <Zone title="В работе у команды" subtitle="кто что тестит" count={teamWork.length} accent="amber">
+            {teamWork.length === 0 && <Empty>Нет активных назначений</Empty>}
+            {teamWork.map(({ member, asg }) => (
+              <div key={member.id} className="space-y-2">
+                <div className="flex items-center gap-2 px-0.5">
+                  <Avatar id={member.id} name={member.name} size="sm" dimmed={member.onVacation} />
+                  <span className="text-xs font-semibold text-slate-300">{member.name}</span>
+                  {member.shift && <span className="text-[10px] text-slate-500">{member.shift}</span>}
+                </div>
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                  {asg!.epicKeys
+                    .map((k) => epicByKey.get(k))
+                    .filter((e): e is NonNullable<typeof e> => Boolean(e))
+                    .map((e) => (
+                      <EpicCard key={member.id + e.key} epic={e} />
+                    ))}
+                </div>
               </div>
-            )}
-            {critFree.map((e) => (
-              <EpicCard key={e.key} epic={e} owners={ownersOf(e.key)} />
-            ))}
-            {normalFree.length === 0 && critFree.length === 0 && <Empty>Свободных эпиков нет</Empty>}
-            {normalFree.map((e) => (
-              <EpicCard key={e.key} epic={e} />
             ))}
           </Zone>
         </div>
@@ -263,18 +298,21 @@ function Zone({
   subtitle,
   count,
   accent,
+  bodyClassName,
   children,
 }: {
   title: string;
   subtitle?: string;
   count: number;
-  accent: "sky" | "amber" | "emerald";
+  accent: "sky" | "amber" | "emerald" | "rose";
+  bodyClassName?: string;
   children: React.ReactNode;
 }) {
   const accentCls = {
     sky: "text-sky-300",
     amber: "text-amber-300",
     emerald: "text-emerald-300",
+    rose: "text-rose-300",
   }[accent];
   return (
     <section className="flex flex-col rounded-2xl border border-white/10 bg-white/2">
@@ -287,7 +325,7 @@ function Zone({
           {count}
         </span>
       </div>
-      <div className="flex flex-col gap-2.5 p-3 lg:max-h-[calc(100vh-260px)] lg:overflow-auto">{children}</div>
+      <div className={`p-3 ${bodyClassName ?? "flex flex-col gap-2.5"}`}>{children}</div>
     </section>
   );
 }
@@ -311,6 +349,14 @@ function Preloader() {
 
       <p className="animate-pulse text-xs text-slate-500">Собираем спринт…</p>
     </div>
+  );
+}
+
+function CountBadge({ n }: { n: number }) {
+  return (
+    <span className="rounded-full bg-white/10 px-1.5 text-[10px] font-bold tabular-nums text-slate-300">
+      {n}
+    </span>
   );
 }
 

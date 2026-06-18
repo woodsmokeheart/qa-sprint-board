@@ -25,11 +25,3 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
     </span>
   );
 }
-
-export function ProjectTag({ project }: { project: string }) {
-  return (
-    <span className="rounded bg-white/5 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-400 ring-1 ring-inset ring-white/10">
-      {project}
-    </span>
-  );
-}

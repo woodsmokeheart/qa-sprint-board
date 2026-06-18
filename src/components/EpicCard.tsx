@@ -1,8 +1,8 @@
 import { CalendarClock, Target } from "lucide-react";
 import type { Epic, Member } from "@/data/sprint";
-import { progressColor, projectOf } from "@/lib/format";
+import { progressColor } from "@/lib/format";
 import { Avatar } from "./Avatar";
-import { PriorityBadge, ProjectTag, StatusBadge } from "./Badges";
+import { PriorityBadge, StatusBadge } from "./Badges";
 
 // Общий срок завершения ретестов на stage для эпиков группы «Бонусы».
 const BONUS_RETEST_ETA = "19.06.2026";
@@ -50,8 +50,7 @@ export function EpicCard({
 }) {
   return (
     <article
-      onClick={() => window.open(epic.links.jira, "_blank", "noopener,noreferrer")}
-      className={`group flex cursor-pointer flex-col gap-2.5 rounded-xl border p-3.5 transition hover:border-white/20 ${
+      className={`group flex flex-col gap-2.5 rounded-xl border p-3.5 transition hover:border-white/20 ${
         epic.goalDone
           ? "border-emerald-500/40 bg-emerald-500/10"
           : epic.critbusiness
@@ -63,8 +62,14 @@ export function EpicCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
-          <ProjectTag project={projectOf(epic.key)} />
-          <span className="font-mono text-xs font-semibold text-sky-300">{epic.key}</span>
+          <a
+            href={epic.links.jira}
+            target="_blank"
+            rel="noreferrer"
+            className="font-mono text-xs font-semibold text-sky-300 transition hover:text-sky-200 hover:underline"
+          >
+            {epic.key}
+          </a>
           {epic.critbusiness && (
             <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-300 ring-1 ring-inset ring-red-500/40">
               Критбизнес
@@ -89,15 +94,16 @@ export function EpicCard({
         <p className="text-xs leading-relaxed text-slate-200">{epic.goal}</p>
       </div>
 
-      {(() => {
-        const inRetest = epic.progress?.retest !== undefined;
-        return (
-          <ProgressBar
-            label={inRetest ? "Ретесты на stage" : "Тесты по чек-листу на stage"}
-            value={inRetest ? epic.progress?.retest : epic.progress?.firstPass}
-          />
-        );
-      })()}
+      {!epic.task &&
+        (() => {
+          const inRetest = epic.progress?.retest !== undefined;
+          return (
+            <ProgressBar
+              label={inRetest ? "Ретесты на stage" : "Тесты по чек-листу на stage"}
+              value={inRetest ? epic.progress?.retest : epic.progress?.firstPass}
+            />
+          );
+        })()}
 
       {epic.bonus && (
         <div className="flex items-center gap-1.5 rounded-lg bg-violet-500/10 px-2.5 py-1.5 text-[11px] font-medium text-violet-200 ring-1 ring-inset ring-violet-500/30">
