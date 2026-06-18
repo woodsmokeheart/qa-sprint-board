@@ -1,8 +1,12 @@
+"use client";
+
+import { useState } from "react";
 import { CalendarClock, Target } from "lucide-react";
 import type { Epic, Member } from "@/data/sprint";
 import { progressColor } from "@/lib/format";
 import { Avatar } from "./Avatar";
 import { PriorityBadge, StatusBadge } from "./Badges";
+import { EpicGraphModal } from "./EpicGraphModal";
 
 // Общий срок завершения ретестов на stage для эпиков группы «Бонусы».
 const BONUS_RETEST_ETA = "19.06.2026";
@@ -48,9 +52,19 @@ export function EpicCard({
   owners?: Member[];
   note?: string;
 }) {
+  const [graphOpen, setGraphOpen] = useState(false);
   return (
     <article
-      className={`group flex flex-col gap-2.5 rounded-xl border p-3.5 transition hover:border-white/20 ${
+      onClick={() => setGraphOpen(true)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setGraphOpen(true);
+        }
+      }}
+      className={`group flex cursor-pointer flex-col gap-2.5 rounded-xl border p-3.5 transition hover:border-white/20 ${
         epic.goalDone
           ? "border-emerald-500/40 bg-emerald-500/10"
           : epic.critbusiness
@@ -66,6 +80,7 @@ export function EpicCard({
             href={epic.links.jira}
             target="_blank"
             rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="font-mono text-xs font-semibold text-sky-300 transition hover:text-sky-200 hover:underline"
           >
             {epic.key}
@@ -132,6 +147,8 @@ export function EpicCard({
           </span>
         </div>
       )}
+
+      <EpicGraphModal epic={epic} open={graphOpen} onClose={() => setGraphOpen(false)} />
     </article>
   );
 }
