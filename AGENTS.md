@@ -148,7 +148,7 @@ print(int.from_bytes(base64.b64decode(s), 'little'))
   `github.com/woodsmokeheart/qa-sprint-board`, ветка `main`.
 - Коммитить **только по просьбе Denis**. Сообщения — по-русски, в стиле
   существующих коммитов.
-- Netlify тянет с `main` (если настроен автодеплой).
+- Vercel тянет с `main` (автодеплой настроен).
 
 ---
 
