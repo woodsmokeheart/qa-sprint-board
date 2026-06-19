@@ -333,16 +333,6 @@ export const epics: Epic[] = [
     links: { jira: `${JIRA}/SPS-424` },
   },
   {
-    key: "BF-3231",
-    title: "Сделать возможной перекраску витрины за 1 день",
-    goal: "Завершить разработку и протестировать.",
-    priority: "high",
-    team: "CORE",
-    task: true,
-    jiraStatus: "rf_qa",
-    links: { jira: `${JIRA}/BF-3231` },
-  },
-  {
     key: "BF-3160",
     title: "BetHub // Проверить загрузку и обработку локали PT-BH",
     goal: "Закрыть фронт и протестировать.",
@@ -409,11 +399,11 @@ export const epics: Epic[] = [
 
 // Распределение на сегодня (17/06). В проде редактируется в админке.
 export const assignments: Assignment[] = [
-  { memberId: "denisk", epicKeys: ["SD-7002"], note: "смок-тестирование Kubernetes на стейдже" },
+  { memberId: "denisk", epicKeys: ["SD-7002", "BF-3160", "SPS-424", "BF-2816"], note: "смок Kubernetes + локаль PT-BH (BetHub) + SEO-тех. ошибки + редизайн карточки игры" },
   { memberId: "yaroslav", epicKeys: ["SD-2896", "SD-4081", "SD-4767"], note: "миграция + комплекс + доработки риска" },
   { memberId: "aleksey", epicKeys: ["SD-2460", "SD-2463"], note: "тест-эпика-бонусы" },
   { memberId: "denisv", epicKeys: ["SD-5870", "SD-2462", "SD-6176"], note: "комплекс game + кэшбэки" },
-  { memberId: "veronika", epicKeys: ["BF-2209"], note: "дальнейшая проходка по чек-листу (связ. SD-3881 / SD-4988)" },
+  { memberId: "veronika", epicKeys: ["BF-2209", "SD-4988", "SD-3881"], note: "дальнейшая проходка по чек-листу (связ. SD-3881 / SD-4988)" },
   { memberId: "daria", epicKeys: ["BF-2804", "BF-2145", "BF-2809"], note: "ретесты + первая проходка Achievements" },
   { memberId: "julia", epicKeys: ["SD-2520"], note: "ознакомление, чек-лист, первая проходка" },
   { memberId: "natalia", epicKeys: ["SD-2521"], note: "ознакомление, чек-лист, первая проходка" },

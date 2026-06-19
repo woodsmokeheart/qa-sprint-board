@@ -11,10 +11,13 @@ import { EpicCard } from "@/components/EpicCard";
 const FREE_VIEW = "__free__";
 
 export default function Home() {
-  // Доска чисто клиентская: показываем прелоадер, затем рендерим борду.
-  // Заодно убирает SSR-гидрацию (и dev-оверлей от инъекций браузера в DOM).
+  // Доска чисто клиентская. На сервере и в первом клиентском рендере отдаём
+  // null — гидрировать нечего, поэтому инъекции браузерных расширений в DOM не
+  // вызывают hydration-warning. Прелоадер и борда монтируются только после mount.
+  const [mounted, setMounted] = useState(false);
   const [ready, setReady] = useState(false);
   useEffect(() => {
+    setMounted(true);
     const t = setTimeout(() => setReady(true), 1000);
     return () => clearTimeout(t);
   }, []);
@@ -84,6 +87,7 @@ export default function Home() {
       .map((a) => memberById.get(a.memberId))
       .filter((m): m is NonNullable<typeof m> => Boolean(m));
 
+  if (!mounted) return null; // SSR + первый клиентский рендер совпадают (оба пусты)
   if (!ready) return <Preloader />;
 
   return (

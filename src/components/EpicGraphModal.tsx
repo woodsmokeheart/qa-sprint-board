@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Bug, X } from "lucide-react";
 import type { Epic } from "@/data/sprint";
-import { epicGraph, toneOfStatus, TONE_HEX } from "@/data/epicGraph";
+import { epicGraph, toneOfStatus, TONE_HEX, type GraphTone } from "@/data/epicGraph";
 import { statusMeta } from "@/lib/format";
 
 const JIRA_BROWSE = "https://sprutgaming.atlassian.net/browse";
@@ -21,6 +21,7 @@ interface GNode {
   id: string;
   label: string;
   color: string;
+  tone?: GraphTone;
   isEpic?: boolean;
   linked?: boolean;
   relation?: string;
@@ -30,6 +31,16 @@ interface GNode {
   x?: number;
   y?: number;
 }
+
+// Порядок и подписи фильтруемых тонов (status-цветов) в легенде.
+const TONE_LEGEND: { tone: GraphTone; label: string }[] = [
+  { tone: "danger", label: "Reopen / блок" },
+  { tone: "warn", label: "Новые / backlog" },
+  { tone: "progress", label: "В QA" },
+  { tone: "ready", label: "Release / merge" },
+  { tone: "done", label: "Готово" },
+  { tone: "muted", label: "Прочее" },
+];
 
 export function EpicGraphModal({
   epic,
@@ -43,6 +54,8 @@ export function EpicGraphModal({
   const wrapRef = useRef<HTMLDivElement>(null);
   const fgRef = useRef<{ zoomToFit: (ms?: number, px?: number) => void } | null>(null);
   const [size, setSize] = useState({ w: 800, h: 500 });
+  // Активные тоны-фильтры. Пустое множество = показываем всё.
+  const [activeTones, setActiveTones] = useState<Set<GraphTone>>(new Set());
 
   useEffect(() => {
     if (!open) return;
@@ -80,24 +93,32 @@ export function EpicGraphModal({
       isEpic: true,
       href: epic.links.jira,
     };
-    const childNodes: GNode[] = (snapshot?.nodes ?? []).map((n) => ({
-      id: n.key,
-      label: `${n.key} · ${n.title}`,
-      color: TONE_HEX[toneOfStatus(n.status, n.cat)],
-      type: n.type,
-      status: n.status,
-      href: `${JIRA_BROWSE}/${n.key}`,
-    }));
-    const linkedNodes: GNode[] = (snapshot?.linked ?? []).map((n) => ({
-      id: n.key,
-      label: `${n.key} · ${n.title}`,
-      color: TONE_HEX[toneOfStatus(n.status, n.cat)],
-      type: n.type,
-      status: n.status,
-      linked: true,
-      relation: n.relation,
-      href: `${JIRA_BROWSE}/${n.key}`,
-    }));
+    const childNodes: GNode[] = (snapshot?.nodes ?? []).map((n) => {
+      const tone = toneOfStatus(n.status, n.cat);
+      return {
+        id: n.key,
+        label: `${n.key} · ${n.title}`,
+        color: TONE_HEX[tone],
+        tone,
+        type: n.type,
+        status: n.status,
+        href: `${JIRA_BROWSE}/${n.key}`,
+      };
+    });
+    const linkedNodes: GNode[] = (snapshot?.linked ?? []).map((n) => {
+      const tone = toneOfStatus(n.status, n.cat);
+      return {
+        id: n.key,
+        label: `${n.key} · ${n.title}`,
+        color: TONE_HEX[tone],
+        tone,
+        type: n.type,
+        status: n.status,
+        linked: true,
+        relation: n.relation,
+        href: `${JIRA_BROWSE}/${n.key}`,
+      };
+    });
     return {
       nodes: [epicNode, ...childNodes, ...linkedNodes],
       links: [
@@ -107,11 +128,43 @@ export function EpicGraphModal({
     };
   }, [epic, snapshot]);
 
+  // Счётчик задач по тонам (дети + связанные).
+  const toneCounts = useMemo(() => {
+    const c: Record<GraphTone, number> = {
+      danger: 0,
+      warn: 0,
+      progress: 0,
+      ready: 0,
+      done: 0,
+      muted: 0,
+    };
+    for (const n of snapshot?.nodes ?? []) c[toneOfStatus(n.status, n.cat)]++;
+    for (const n of snapshot?.linked ?? []) c[toneOfStatus(n.status, n.cat)]++;
+    return c;
+  }, [snapshot]);
+
+  // Сброс фильтра при смене эпика.
+  useEffect(() => {
+    setActiveTones(new Set());
+  }, [epic.key]);
+
+  const toggleTone = (tone: GraphTone) =>
+    setActiveTones((prev) => {
+      const next = new Set(prev);
+      if (next.has(tone)) next.delete(tone);
+      else next.add(tone);
+      return next;
+    });
+
+  const isVisible = (n?: GNode | null) =>
+    !n || n.isEpic || activeTones.size === 0 || (n.tone !== undefined && activeTones.has(n.tone));
+
   if (!open) return null;
 
   const total = snapshot?.nodes.length ?? 0;
   const bugs = snapshot?.nodes.filter((n) => n.type === "bug").length ?? 0;
   const linkedCount = snapshot?.linked?.length ?? 0;
+  const filterActive = activeTones.size > 0;
 
   return (
     <div
@@ -174,6 +227,12 @@ export function EpicGraphModal({
               cooldownTicks={60}
               d3VelocityDecay={0.4}
               onEngineStop={() => fgRef.current?.zoomToFit(500, 48)}
+              nodeVisibility={(node: unknown) => isVisible(node as GNode)}
+              linkVisibility={(link: unknown) => {
+                const t = (link as { target: unknown }).target;
+                const node = typeof t === "object" ? (t as GNode) : null;
+                return isVisible(node);
+              }}
               nodeLabel={(node: unknown) => {
                 const n = node as GNode;
                 if (n.isEpic) return n.label;
@@ -249,31 +308,48 @@ export function EpicGraphModal({
           </p>
         </div>
 
-        <footer className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-white/10 px-4 py-2.5 text-[11px] text-slate-400">
-          <Legend color={EPIC_HEX} label="Эпик" />
-          <Legend color={TONE_HEX.danger} label="Reopen / блок" />
-          <Legend color={TONE_HEX.warn} label="Новые / backlog" />
-          <Legend color={TONE_HEX.progress} label="В QA" />
-          <Legend color={TONE_HEX.ready} label="Release / merge" />
-          <Legend color={TONE_HEX.done} label="Готово" />
+        <footer className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-white/10 px-4 py-2.5 text-[11px] text-slate-400">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: EPIC_HEX }} />
+            Эпик
+          </span>
+          {TONE_LEGEND.map(({ tone, label }) => {
+            const count = toneCounts[tone];
+            if (count === 0) return null;
+            const active = activeTones.has(tone);
+            return (
+              <button
+                key={tone}
+                type="button"
+                onClick={() => toggleTone(tone)}
+                aria-pressed={active}
+                title={active ? "Убрать из фильтра" : "Показать только этот цвет"}
+                className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 transition ${
+                  active
+                    ? "bg-white/10 text-slate-100 ring-1 ring-white/30"
+                    : filterActive
+                      ? "text-slate-500 opacity-60 hover:opacity-100"
+                      : "hover:bg-white/5 hover:text-slate-200"
+                }`}
+              >
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: TONE_HEX[tone] }} />
+                {label}
+                <span className="font-mono text-[10px] text-slate-400">{count}</span>
+              </button>
+            );
+          })}
           <span className="inline-flex items-center gap-1.5">
             <span
               className="h-2.5 w-2.5 rounded-full border-2"
               style={{ borderColor: LINK_HEX }}
             />
             связанные (линк)
+            {linkedCount > 0 && (
+              <span className="font-mono text-[10px] text-slate-500">{linkedCount}</span>
+            )}
           </span>
         </footer>
       </div>
     </div>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
-      {label}
-    </span>
   );
 }
