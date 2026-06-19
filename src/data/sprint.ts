@@ -147,7 +147,7 @@ export const epics: Epic[] = [
     goal: "Завершить разработку, протестировать на стейдже и просмокать на демо.",
     priority: "highest",
     team: "CORE",
-    jiraStatus: "in_development",
+    jiraStatus: "qa_testing",
     progress: { firstPass: 100, retest: 20 },
     links: { jira: `${JIRA}/SD-2460`, testChannel: "https://sprutgamingtech.slack.com/archives/C0ATHE2F0KB" },
   },
@@ -342,7 +342,7 @@ export const epics: Epic[] = [
     priority: "high",
     team: "CORE",
     task: true,
-    jiraStatus: "qa_testing",
+    jiraStatus: "rf_release",
     links: { jira: `${JIRA}/BF-3160` },
   },
   // ===== Критбизнес =====
