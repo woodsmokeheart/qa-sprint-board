@@ -72,15 +72,18 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
         if (!res.ok) throw new Error(`API ${res.status}`);
         const d = await res.json();
 
-        // Группируем assignments: memberId → epicKeys[]
-        const asgMap = new Map<string, string[]>();
+        // Группируем assignments: memberId → { epicKeys[], note }
+        // note хранится по строкам (member, epic); берём первую непустую заметку участника.
+        const asgMap = new Map<string, { epicKeys: string[]; note?: string }>();
         for (const a of d.assignments) {
           const key = a.memberId as string;
-          if (!asgMap.has(key)) asgMap.set(key, []);
-          asgMap.get(key)!.push(a.jiraKey as string);
+          if (!asgMap.has(key)) asgMap.set(key, { epicKeys: [] });
+          const entry = asgMap.get(key)!;
+          entry.epicKeys.push(a.jiraKey as string);
+          if (!entry.note && a.note) entry.note = a.note as string;
         }
         const assignments: Assignment[] = Array.from(asgMap.entries()).map(
-          ([memberId, epicKeys]) => ({ memberId, epicKeys })
+          ([memberId, { epicKeys, note }]) => ({ memberId, epicKeys, note })
         );
 
         setData({
