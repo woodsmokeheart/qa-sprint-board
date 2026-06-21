@@ -2,15 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Palmtree } from "lucide-react";
-import { assignments, epics, members, sprint, type Team } from "@/data/sprint";
+import { type Team } from "@/data/sprint";
 import { fmtRange, sprintCompletion, sprintProgress } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { EpicCard } from "@/components/EpicCard";
+import { BoardDataProvider, useBoardData } from "@/components/BoardDataProvider";
 
 // Спец-режим зрителя: показать только свободный пул «Можно взять».
 const FREE_VIEW = "__free__";
 
 export default function Home() {
+  return (
+    <BoardDataProvider>
+      <HomeInner />
+    </BoardDataProvider>
+  );
+}
+
+function HomeInner() {
+  const { epics, members, assignments, sprint, syncedAt } = useBoardData();
+
   // Доска чисто клиентская. На сервере и в первом клиентском рендере отдаём
   // null — гидрировать нечего, поэтому инъекции браузерных расширений в DOM не
   // вызывают hydration-warning. Прелоадер и борда монтируются только после mount.
@@ -26,8 +37,8 @@ export default function Home() {
   // null = общая борда (вся команда). Иначе — фокус на одном тестере.
   const [viewerId, setViewerId] = useState<string | null>(null);
 
-  const teamMembers = useMemo(() => members.filter((m) => m.team === team), [team]);
-  const teamEpics = useMemo(() => epics.filter((e) => e.team === team), [team]);
+  const teamMembers = useMemo(() => members.filter((m) => m.team === team), [members, team]);
+  const teamEpics = useMemo(() => epics.filter((e) => e.team === team), [epics, team]);
 
   function switchTeam(t: Team) {
     setTeam(t);
@@ -40,9 +51,9 @@ export default function Home() {
       : null;
   const freeView = viewerId === FREE_VIEW;
 
-  const epicByKey = useMemo(() => new Map(epics.map((e) => [e.key, e])), []);
-  const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), []);
-  const asgByMember = useMemo(() => new Map(assignments.map((a) => [a.memberId, a])), []);
+  const epicByKey = useMemo(() => new Map(epics.map((e) => [e.key, e])), [epics]);
+  const memberById = useMemo(() => new Map(members.map((m) => [m.id, m])), [members]);
+  const asgByMember = useMemo(() => new Map(assignments.map((a) => [a.memberId, a])), [assignments]);
 
   const { dayNum, totalDays, pct: timePct } = sprintProgress(sprint, new Date());
   // Готовность спринта считаем из реальных процентов эпиков текущей команды.
@@ -101,6 +112,11 @@ export default function Home() {
               <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-300 ring-1 ring-inset ring-sky-500/30">
                 Спринт {sprint.number}
               </span>
+              {syncedAt && (
+                <span className="text-gray-600 text-xs">
+                  Jira: {new Date(syncedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                </span>
+              )}
             </div>
             <p className="mt-0.5 text-xs text-slate-400">
               {fmtRange(sprint)} · день {dayNum} из {totalDays} ·{" "}
@@ -335,6 +351,7 @@ function Zone({
 }
 
 function Preloader() {
+  const { sprint } = useBoardData();
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6">
       <div className="flex flex-col items-center gap-3">

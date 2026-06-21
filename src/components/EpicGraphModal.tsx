@@ -4,7 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Bug, X } from "lucide-react";
 import type { Epic } from "@/data/sprint";
-import { epicGraph, toneOfStatus, TONE_HEX, type GraphTone } from "@/data/epicGraph";
+import {
+  epicGraph,
+  toneOfStatus,
+  TONE_HEX,
+  type GraphTone,
+  type EpicGraphData,
+} from "@/data/epicGraph";
 import { statusMeta } from "@/lib/format";
 
 const JIRA_BROWSE = "https://sprutgaming.atlassian.net/browse";
@@ -88,7 +94,30 @@ export function EpicGraphModal({
     return () => ro.disconnect();
   }, [open]);
 
-  const snapshot = epicGraph[epic.key];
+  // Живой снапшот из API (обновляется кроном). Стартуем со статики как fallback,
+  // затем при открытии подменяем на свежие данные из Jira.
+  const [snapshot, setSnapshot] = useState<EpicGraphData | undefined>(
+    epicGraph[epic.key],
+  );
+
+  useEffect(() => {
+    setSnapshot(epicGraph[epic.key]);
+    if (!open) return;
+    let cancelled = false;
+    fetch(`/api/graph/${encodeURIComponent(epic.key)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { nodes?: unknown[]; linked?: unknown[] } | null) => {
+        if (cancelled || !d) return;
+        // подменяем только если бэк реально отдал собранный граф
+        if ((d.nodes?.length ?? 0) > 0 || (d.linked?.length ?? 0) > 0) {
+          setSnapshot(d as EpicGraphData);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, epic.key]);
 
   const graphData = useMemo(() => {
     const epicNode: GNode = {

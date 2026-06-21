@@ -5,6 +5,17 @@
 
 ---
 
+## 21.06.2026 — переход на BFF: Neon Postgres + мини-админка
+
+- Добавлен Next.js BFF: API routes, Neon Postgres (6 таблиц), Vercel Cron.
+- Статусы и retest % тянутся из Jira автоматически (крон каждые 30 мин);
+  retest % = `(Done + RF Release) / (дочерние + связанные)`.
+- firstPass %, флаги, назначения и состав спринта правятся через мини-админку
+  без деплоя: `/admin/epics`, `/admin/assignments`, `/admin/sprints`.
+- Админка защищена middleware + куком `admin_token` (fail-closed).
+- `BoardDataProvider`: доска читает `/api/sprint/active`, fallback на sprint.ts.
+- Контракт API — camelCase. `sprint.ts` сохранён как readonly-архив спринта 10.
+
 ## 19.06.2026 — развёл статусы в графе (10 тонов вместо 6)
 
 - Раньше `toneOfStatus` схлопывал близкие статусы: R.F. QA + QA testing → один

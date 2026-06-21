@@ -154,7 +154,7 @@ node scripts/genGraph.mjs --reset \
 
 ## 📦 Деплой
 
-Проект собирается в статику и тянется на любой хостинг (Netlify / Vercel / GitHub Pages). Текущий деплой — Netlify с автоподтягиванием из ветки `main`.
+Проект собирается в статику и тянется на любой хостинг (Netlify / Vercel / GitHub Pages). Текущий деплой — Vercel с автоподтягиванием из ветки `main`.
 
 ---
 
