@@ -1,4 +1,6 @@
 // src/lib/jira.ts
+import type { GraphNode, LinkedNode } from "@/data/epicGraph";
+
 const BASE = process.env.JIRA_BASE_URL!;
 const TOKEN = process.env.JIRA_TOKEN!;
 
@@ -107,6 +109,72 @@ export async function fetchEpicsMeta(keys: string[]): Promise<JiraEpicMeta[]> {
     priority: i.fields.priority?.name?.toLowerCase() ?? "none",
     issueType: i.fields.issuetype?.name ?? "",
   }));
+}
+
+// Тип узла графа: баг или задача (issuetype локализован — "Баг"/"Bug").
+function graphType(issuetype: string | undefined): "bug" | "task" {
+  const t = (issuetype ?? "").toLowerCase();
+  return t.includes("баг") || t.includes("bug") ? "bug" : "task";
+}
+
+interface RawIssue {
+  key: string;
+  fields: {
+    summary: string;
+    status: { name: string; statusCategory?: { key: string } };
+    issuetype?: { name: string };
+  };
+}
+
+export interface EpicGraphSnapshot { nodes: GraphNode[]; linked: LinkedNode[] }
+
+// Живой снапшот графа эпика: дочерние (по полю parent) + связанные (issuelinks).
+// Связанные берём прямо из поля issuelinks эпика — там есть статус, тип, summary
+// и тип связи (relation) за один запрос, и список совпадает с панелью связей Jira.
+export async function fetchEpicGraph(epicKey: string): Promise<EpicGraphSnapshot> {
+  const [childIssues, epicRows] = (await Promise.all([
+    searchIssues(`parent = "${epicKey}"`, ["summary", "status", "issuetype"]),
+    searchIssues(`key = "${epicKey}"`, ["issuelinks"]),
+  ])) as [
+    RawIssue[],
+    Array<{
+      fields: {
+        issuelinks?: Array<{
+          type: { name: string; inward: string; outward: string };
+          inwardIssue?: RawIssue;
+          outwardIssue?: RawIssue;
+        }>;
+      };
+    }>,
+  ];
+
+  const nodes: GraphNode[] = childIssues.map((i) => ({
+    key: i.key,
+    title: i.fields.summary,
+    type: graphType(i.fields.issuetype?.name),
+    status: i.fields.status?.name ?? "",
+    cat: i.fields.status?.statusCategory?.key ?? "new",
+  }));
+
+  const childKeys = new Set(nodes.map((n) => n.key));
+  const linkedMap = new Map<string, LinkedNode>();
+  for (const link of epicRows[0]?.fields?.issuelinks ?? []) {
+    const issue = link.outwardIssue ?? link.inwardIssue;
+    if (!issue) continue;
+    // не дублируем то, что уже дочернее, и одну задачу с несколькими связями
+    if (childKeys.has(issue.key) || linkedMap.has(issue.key)) continue;
+    const relation = link.outwardIssue ? link.type.outward : link.type.inward;
+    linkedMap.set(issue.key, {
+      key: issue.key,
+      title: issue.fields.summary,
+      type: graphType(issue.fields.issuetype?.name),
+      status: issue.fields.status?.name ?? "",
+      cat: issue.fields.status?.statusCategory?.key ?? "new",
+      relation: relation || link.type.name,
+    });
+  }
+
+  return { nodes, linked: [...linkedMap.values()] };
 }
 
 // Считаем retest %: (Done + RF Release) / (дочерние + связанные) * 100

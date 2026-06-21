@@ -5,8 +5,11 @@ import { isEpicType } from "@/lib/jira";
 
 export async function GET(_request?: Request) {
   // Активный спринт
+  // start_date/end_date кастим в text: иначе neon парсит DATE в JS Date в
+  // локальной зоне (наружу уходит ...T21:00:00Z), фронт клеит "+T00:00:00" и
+  // получает Invalid Date → NaN. На Vercel (UTC) дата ещё и съезжала на день.
   const sprints = (await sql`
-    SELECT id, number, start_date, end_date, confluence_url
+    SELECT id, number, start_date::text AS start_date, end_date::text AS end_date, confluence_url
     FROM sprints WHERE is_active = true LIMIT 1
   `) as Array<{
     id: number; number: number; start_date: string; end_date: string; confluence_url: string;

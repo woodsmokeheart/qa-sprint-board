@@ -1,6 +1,6 @@
 // src/lib/sync.ts
 import { sql } from "./db";
-import { fetchEpicsMeta, fetchRetestPct } from "./jira";
+import { fetchEpicsMeta, fetchRetestPct, fetchEpicGraph, type EpicGraphSnapshot } from "./jira";
 
 export async function syncActiveSprintEpics(): Promise<{ synced: number; errors: string[] }> {
   // Достаём ключи активного спринта
@@ -43,19 +43,38 @@ export async function syncActiveSprintEpics(): Promise<{ synced: number; errors:
     }
   }
 
+  // Параллельный сбор живого графа (дочерние + связанные) для каждого эпика
+  const graphResults = await Promise.allSettled(
+    keys.map(async (key) => ({ key, graph: await fetchEpicGraph(key) }))
+  );
+
+  const graphMap = new Map<string, EpicGraphSnapshot>();
+  for (const r of graphResults) {
+    if (r.status === "fulfilled") {
+      graphMap.set(r.value.key, r.value.graph);
+    } else {
+      errors.push(`graph fetch failed: ${String(r.reason)}`);
+    }
+  }
+
   // Пишем в jira_cache
   let synced = 0;
   for (const key of keys) {
     const meta = metaMap.get(key);
     if (!meta) { errors.push(`meta not found for ${key}`); continue; }
 
+    const graph = graphMap.get(key);
+    const graphNodes = graph ? JSON.stringify(graph.nodes) : null;
+    const graphLinked = graph ? JSON.stringify(graph.linked) : null;
+
     try {
       await sql`
-        INSERT INTO jira_cache (jira_key, title, jira_status, assignee_name, assignee_id, priority, retest_pct, issue_type, synced_at)
+        INSERT INTO jira_cache (jira_key, title, jira_status, assignee_name, assignee_id, priority, retest_pct, issue_type, graph_nodes, graph_linked, synced_at)
         VALUES (
           ${key}, ${meta.title}, ${meta.jiraStatus},
           ${meta.assigneeName}, ${meta.assigneeId}, ${meta.priority},
-          ${retestMap.get(key) ?? 0}, ${meta.issueType}, now()
+          ${retestMap.get(key) ?? 0}, ${meta.issueType},
+          ${graphNodes}::jsonb, ${graphLinked}::jsonb, now()
         )
         ON CONFLICT (jira_key) DO UPDATE SET
           title         = EXCLUDED.title,
@@ -65,6 +84,8 @@ export async function syncActiveSprintEpics(): Promise<{ synced: number; errors:
           priority      = EXCLUDED.priority,
           retest_pct    = EXCLUDED.retest_pct,
           issue_type    = EXCLUDED.issue_type,
+          graph_nodes   = COALESCE(EXCLUDED.graph_nodes, jira_cache.graph_nodes),
+          graph_linked  = COALESCE(EXCLUDED.graph_linked, jira_cache.graph_linked),
           synced_at     = now()
       `;
       synced++;
