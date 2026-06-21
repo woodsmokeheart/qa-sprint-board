@@ -17,8 +17,14 @@ export async function syncActiveSprintEpics(): Promise<{ synced: number; errors:
   const errors: string[] = [];
 
   // Батч-запрос мета всех эпиков
-  const metas = await fetchEpicsMeta(keys);
-  const metaMap = new Map(metas.map((m) => [m.key, m]));
+  let metaMap: Map<string, Awaited<ReturnType<typeof fetchEpicsMeta>>[number]>;
+  try {
+    const metas = await fetchEpicsMeta(keys);
+    metaMap = new Map(metas.map((m) => [m.key, m]));
+  } catch (e) {
+    errors.push(`fetchEpicsMeta failed: ${String(e)}`);
+    return { synced: 0, errors };
+  }
 
   // Параллельный подсчёт retest % для каждого эпика
   const retestResults = await Promise.allSettled(
@@ -43,23 +49,28 @@ export async function syncActiveSprintEpics(): Promise<{ synced: number; errors:
     const meta = metaMap.get(key);
     if (!meta) { errors.push(`meta not found for ${key}`); continue; }
 
-    await sql`
-      INSERT INTO jira_cache (jira_key, title, jira_status, assignee_name, assignee_id, priority, retest_pct, synced_at)
-      VALUES (
-        ${key}, ${meta.title}, ${meta.jiraStatus},
-        ${meta.assigneeName}, ${meta.assigneeId}, ${meta.priority},
-        ${retestMap.get(key) ?? 0}, now()
-      )
-      ON CONFLICT (jira_key) DO UPDATE SET
-        title         = EXCLUDED.title,
-        jira_status   = EXCLUDED.jira_status,
-        assignee_name = EXCLUDED.assignee_name,
-        assignee_id   = EXCLUDED.assignee_id,
-        priority      = EXCLUDED.priority,
-        retest_pct    = EXCLUDED.retest_pct,
-        synced_at     = now()
-    `;
-    synced++;
+    try {
+      await sql`
+        INSERT INTO jira_cache (jira_key, title, jira_status, assignee_name, assignee_id, priority, retest_pct, synced_at)
+        VALUES (
+          ${key}, ${meta.title}, ${meta.jiraStatus},
+          ${meta.assigneeName}, ${meta.assigneeId}, ${meta.priority},
+          ${retestMap.get(key) ?? 0}, now()
+        )
+        ON CONFLICT (jira_key) DO UPDATE SET
+          title         = EXCLUDED.title,
+          jira_status   = EXCLUDED.jira_status,
+          assignee_name = EXCLUDED.assignee_name,
+          assignee_id   = EXCLUDED.assignee_id,
+          priority      = EXCLUDED.priority,
+          retest_pct    = EXCLUDED.retest_pct,
+          synced_at     = now()
+      `;
+      synced++;
+    } catch (e) {
+      errors.push(`upsert failed ${key}: ${String(e)}`);
+      continue;
+    }
   }
 
   return { synced, errors };

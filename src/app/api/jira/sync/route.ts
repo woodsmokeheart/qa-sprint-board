@@ -7,6 +7,10 @@ export async function POST(request: Request) {
   const authError = await requireAdmin(request);
   if (authError) return authError;
 
-  const result = await syncActiveSprintEpics();
-  return NextResponse.json(result);
+  try {
+    const result = await syncActiveSprintEpics();
+    return NextResponse.json(result);
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
 }
