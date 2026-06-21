@@ -1,6 +1,23 @@
 // src/lib/jira.test.ts
 import { describe, it, expect } from "vitest";
-import { fetchEpicsMeta, fetchRetestPct } from "./jira";
+import { fetchEpicsMeta, fetchRetestPct, isDoneStatus } from "./jira";
+
+// Оффлайн (без сети): регистронезависимый детект готовности.
+describe("isDoneStatus", () => {
+  it("true для done/rf_release в любом регистре и языке", () => {
+    expect(isDoneStatus("done")).toBe(true);
+    expect(isDoneStatus("DONE")).toBe(true);
+    expect(isDoneStatus("Готово")).toBe(true);
+    expect(isDoneStatus("готово")).toBe(true);
+    expect(isDoneStatus("R.F Release")).toBe(true);
+    expect(isDoneStatus("rf release")).toBe(true);
+  });
+
+  it("false для не-готовых статусов", () => {
+    expect(isDoneStatus("QA testing")).toBe(false);
+    expect(isDoneStatus("analysis")).toBe(false);
+  });
+});
 
 // Запускать только с реальными кредами: npx vitest run src/lib/jira.test.ts
 describe("jira client", () => {

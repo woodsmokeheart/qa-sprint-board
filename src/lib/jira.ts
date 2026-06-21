@@ -1,7 +1,6 @@
 // src/lib/jira.ts
 const BASE = process.env.JIRA_BASE_URL!;
 const TOKEN = process.env.JIRA_TOKEN!;
-const CLOUD = process.env.JIRA_CLOUD_ID!;
 
 const HEADERS = {
   Authorization: `Basic ${TOKEN}`,
@@ -32,8 +31,12 @@ function mapStatus(name: string): string {
   return STATUS_MAP[name.trim().toLowerCase()] ?? "backlog";
 }
 
-// Статусы, считающиеся «готово» для retest % (сверено по живым данным BF-2209).
-const DONE_STATUSES = new Set(["R.F Release", "RF Release", "Готово к релизу", "Готово", "Done"]);
+// Готовность для retest % считаем через тот же регистронезависимый mapStatus,
+// иначе статусы в другом регистре/языке ("done", "готово", "R.F Release") тихо
+// не засчитаются и retest занижается. Чистая функция — тестируется без сети.
+export function isDoneStatus(name: string): boolean {
+  return ["done", "rf_release"].includes(mapStatus(name));
+}
 
 export interface JiraEpicMeta {
   key: string;
@@ -102,13 +105,17 @@ export async function fetchRetestPct(epicKey: string): Promise<number> {
     searchIssues(`parent = "${epicKey}"`, ["status"]),
     searchIssues(`issue in linkedIssues("${epicKey}")`, ["status"]),
   ]) as [
-    Array<{ fields: { status: { name: string } } }>,
-    Array<{ fields: { status: { name: string } } }>,
+    Array<{ key: string; fields: { status: { name: string } } }>,
+    Array<{ key: string; fields: { status: { name: string } } }>,
   ];
 
-  const all = [...children, ...linked];
+  // Тикет может быть и дочерним, и связанным одновременно — дедупим по key,
+  // иначе он посчитается дважды и знаменатель поплывёт.
+  const byKey = new Map<string, { key: string; fields: { status: { name: string } } }>();
+  for (const i of [...children, ...linked]) byKey.set(i.key, i);
+  const all = [...byKey.values()];
   if (all.length === 0) return 0;
 
-  const done = all.filter((i) => DONE_STATUSES.has(i.fields.status.name)).length;
+  const done = all.filter((i) => isDoneStatus(i.fields.status.name)).length;
   return Math.round((done / all.length) * 100);
 }
