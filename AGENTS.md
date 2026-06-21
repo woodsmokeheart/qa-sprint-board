@@ -12,17 +12,27 @@
 тестер открывает и сразу видит: кто что тестит, что свободно/можно взять, какой
 прогресс по эпикам. Чисто для наглядности.
 
-- **Бэкенда нет.** Всё состояние — в одном файле `src/data/sprint.ts`.
-- Обновляет доску лид (Denis) через ассистента, обычно каждое утро после отчётов.
-- Стек: **Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4**.
-  Деплой как статика.
+- **Есть бэкенд (BFF).** Данные тянутся из Neon Postgres + Jira через API
+  (`/api/sprint/active`). `src/data/sprint.ts` остаётся как **readonly-архив
+  спринта 10** и fallback, если API недоступен.
+- Операционные данные (статусы, retest %, исполнители, тайтлы) — из Jira
+  автоматически (Vercel Cron каждые 30 мин). QA-специфику (firstPass %, флаги,
+  назначения, состав спринта) лид (Denis) правит через мини-админку `/admin`.
+- Стек: **Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
+  Neon Postgres (@neondatabase/serverless) · Vitest**. Деплой на Vercel.
 
 ### Запуск / проверки
 ```bash
-npm run dev        # http://localhost:3000
-npx tsc --noEmit   # типы
+npm run dev          # http://localhost:3000
+npx tsc --noEmit     # типы
+npm test             # vitest (unit/integration)
+npm run build        # прод-сборка (главный гейт перед деплоем)
+npm run migrate      # применить миграции к БД (tsx --env-file=.env.local)
+npm run seed         # засеять БД из sprint.ts (идемпотентно)
 ```
-Линтер — через инструмент ReadLints по `src`. После правок всегда прогоняй.
+Линтер: `npm run lint`. Прим.: в репо есть пред-существующие lint-ошибки
+`react-hooks/set-state-in-effect` (page.tsx, EpicGraphModal.tsx и admin-страницы) —
+они **не блокируют** `next build`. Это тех.долг, не регресс.
 
 ---
 
@@ -30,13 +40,35 @@ npx tsc --noEmit   # типы
 
 ```
 src/
-  data/sprint.ts   # ЕДИНЫЙ источник правды: типы, эпики, команда, распределение
-  lib/format.ts    # статусы/приоритеты, расчёт прогресса спринта, аватары
-  components/       # Avatar, Badges (StatusBadge, PriorityBadge), EpicCard
-  app/page.tsx      # витрина (client component): шапка + зоны + прелоадер
-  app/layout.tsx    # metadata, viewport (safe-area)
-  app/globals.css   # стили, прелоадер, .safe-pad
+  data/sprint.ts    # типы + readonly-архив спринта 10 (fallback при недоступном API)
+  lib/db.ts         # Neon-клиент (sql tagged-template), query()
+  lib/jira.ts       # Jira client: fetchEpicsMeta + fetchRetestPct (пагинация)
+  lib/sync.ts       # синк активного спринта с Jira → jira_cache
+  lib/auth.ts       # requireAdmin / isAdmin (кука admin_token, fail-closed)
+  lib/format.ts     # статусы/приоритеты, расчёт прогресса спринта, аватары
+  middleware.ts     # защита /admin/* (редирект на /admin/login без куки)
+  components/        # Avatar, Badges, EpicCard, BoardDataProvider (фронт↔API)
+  app/page.tsx       # витрина: оборачивает HomeInner в BoardDataProvider
+  app/admin/         # мини-админка: login, dashboard, epics, assignments, sprints
+  app/api/           # sprint/active, epics, assignments, sprint, members,
+                     #   jira/sync, cron/sync, admin/login
+migrations/001_initial.sql   # схема БД (6 таблиц)
+scripts/migrate.ts, seed.ts  # применение миграций и сид из sprint.ts
+vercel.json         # Vercel Cron: /api/cron/sync каждые 30 мин
 ```
+
+### Бэкенд / БД
+- **6 таблиц** (Neon Postgres): `sprints`, `sprint_epics`, `members`,
+  `assignments`, `progress_entries` (firstPass %), `jira_cache` (тайтл/статус/
+  исполнитель/retest % из Jira).
+- `GET /api/sprint/active` собирает активный спринт: эпики (из `sprint_epics` +
+  `jira_cache` + `progress_entries`), members, assignments, `syncedAt`. Контракт
+  JSON — **camelCase** (jiraKey, firstPass, retestPct, slackId, onVacation,
+  memberId, sprintId).
+- **retest %** = `(Done + RF Release) / (все дочерние + связанные тикеты) * 100`,
+  считается из Jira с пагинацией по `nextPageToken`.
+- Мутирующие роуты защищены `requireAdmin` (кука `admin_token === ADMIN_TOKEN`,
+  fail-closed при незаданном токене). Cron защищён `CRON_SECRET`.
 
 ### Модель данных (`src/data/sprint.ts`)
 - `Epic`: `key`, `title`, `goal`, `priority`, `team` (`CORE`|`eQA`), `jiraStatus`,
@@ -87,28 +119,27 @@ src/
 
 ## 3. Источники данных и как обновлять
 
-Утром Denis присылает отчёты/правки. Обновляются обычно **статусы** и
-**проценты**. Порядок:
+### Обновление данных (новый способ — с бэкендом)
+- **Статусы Jira и retest %** обновляются автоматически кроном каждые 30 мин
+  (`/api/cron/sync`). Экстренный синк — `/admin` → кнопка «Синк Jira».
+- **firstPass %** — Denis правит через `/admin/epics` (инлайн, без деплоя).
+- **Флаги** (critbusiness/bonus/task/goalDone) — `/admin/epics`, чекбоксы.
+- **Назначения** (кто что тестит) — `/admin/assignments` (матрица тестер × эпик).
+- **Состав спринта** (какие эпики) — `/admin/epics`; **новый спринт** —
+  `/admin/sprints`.
+- Доска `/` читает всё из `/api/sprint/active`; при недоступном API —
+  fallback на `src/data/sprint.ts`.
 
-### Статусы эпиков — из Jira (Atlassian MCP)
-- Тул: `searchJiraIssuesUsingJql`, поля `["status","summary","issuetype"]`.
-- `cloudId = 74d6fc17-1c7c-43e5-be7a-13f71cdc3372`.
-- JQL: `key in (...все ключи доски...)`. Маппинг имени статуса → enum см. выше /
-  `lib/format.ts` (`statusMeta`).
+> Ручное редактирование `src/data/sprint.ts` для оперативных данных больше **не
+> нужно** — это архив. Меняем через админку.
 
-### Проценты — из ежедневных отчётов QA
+### Проценты — классификация шкал (контекст для firstPass)
 - **Источник правды — то, что написал сам QA** (не пересчитывать дробь!).
-  Пример подвоха: запись `29(82%)/77` означает **82 %** (так считает тестер),
-  а не 29/77.
-- Отчёты лежат:
-  - **Slack** — тред дня в канале daily QA (channel id `C0A7SJ68KK3`,
-    тред-родитель «QA // <дата>»). Тул `slack_read_thread` (channel_id +
-    message_ts в формате `1781704815.739789`). **Это первоисточник.**
-  - **Confluence DLR** — страница-сводка за день (может расходиться со Slack;
-    при конфликте верить Slack/тестеру).
-- Классификация шкалы: если QA пишет «первая проходка / чек-лист» → `firstPass`;
-  «ретест» → `retest`. Если по эпику в этот день отчёта нет — **не выдумывать**,
-  оставить прошлое значение (отметить как устаревшее).
+  Пример подвоха: запись `29(82%)/77` означает **82 %**, а не 29/77.
+- Если QA пишет «первая проходка / чек-лист» → это `firstPass` (вводится в
+  `/admin/epics`). «ретест» → `retest` (считается из Jira автоматически).
+- Отчёты QA: **Slack** — тред дня в канале daily QA (channel id `C0A7SJ68KK3`).
+  **Confluence DLR** — сводка за день (при конфликте верить Slack/тестеру).
 
 ### Состав/объём спринта — Confluence «утверждённый спринт»
 - Спринт 10: `https://sprutgaming.atlassian.net/wiki/x/AYCeJw`
@@ -149,6 +180,20 @@ print(int.from_bytes(base64.b64decode(s), 'little'))
 - Коммитить **только по просьбе Denis**. Сообщения — по-русски, в стиле
   существующих коммитов.
 - Vercel тянет с `main` (автодеплой настроен).
+
+### Переменные окружения (Vercel → Settings → Environment Variables)
+Локально лежат в `.env.local` (git-ignored). На проде нужно завести:
+- `DATABASE_URL` (+ `DATABASE_URL_UNPOOLED` для миграций) — из Neon.
+- `JIRA_BASE_URL` = `https://sprutgaming.atlassian.net`
+- `JIRA_TOKEN` = base64(`email:api_token`)
+- `JIRA_CLOUD_ID` = `74d6fc17-1c7c-43e5-be7a-13f71cdc3372`
+- `ADMIN_TOKEN` — случайная строка ≥ 32 символа (вход в `/admin`).
+- `CRON_SECRET` — случайная строка ≥ 32 символа (защита `/api/cron/sync`).
+
+### Первичный сид прода
+После настройки `DATABASE_URL` на проде один раз применить миграции и сид:
+`npm run migrate && npm run seed` (идемпотентно). Переходящие эпики переносят
+firstPass % через сид при создании нового спринта.
 
 ---
 
