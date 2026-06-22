@@ -176,14 +176,6 @@ function HomeInner() {
           </div>
         </div>
 
-        {/* Легенда цветов карточек */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <LegendItem swatch="border-white/20 bg-white/10" label="Стандартные" />
-          <LegendItem swatch="border-emerald-500/50 bg-emerald-500/15" label="Цель спринта закрыта" />
-          <LegendItem swatch="border-violet-500/50 bg-violet-500/15" label="Особое внимание" />
-          <LegendItem swatch="border-red-500/50 bg-red-500/15" label="Критбизнес" />
-        </div>
-
         {/* Viewer selector */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <button
@@ -382,15 +374,6 @@ function CountBadge({ n }: { n: number }) {
     <span className="rounded-full bg-white/10 px-1.5 text-[10px] font-bold tabular-nums text-slate-300">
       {n}
     </span>
-  );
-}
-
-function LegendItem({ swatch, label }: { swatch: string; label: string }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className={`h-3 w-3 rounded-sm border ${swatch}`} />
-      <span className="text-[11px] text-slate-400">{label}</span>
-    </div>
   );
 }
 
