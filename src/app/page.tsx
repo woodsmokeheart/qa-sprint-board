@@ -107,14 +107,14 @@ function HomeInner() {
       <header className="mb-5 rounded-2xl border border-white/10 bg-white/3 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-100">QA Sprint Board</h1>
-              <span className="rounded-md bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-300 ring-1 ring-inset ring-sky-500/30">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h1 className="whitespace-nowrap text-lg font-bold text-slate-100">QA Sprint Board</h1>
+              <span className="shrink-0 whitespace-nowrap rounded-md bg-sky-500/15 px-2 py-0.5 text-xs font-semibold text-sky-300 ring-1 ring-inset ring-sky-500/30">
                 Спринт {sprint.number}
               </span>
               {syncedAt && (
-                <span className="text-gray-600 text-xs">
-                  Jira: {new Date(syncedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+                <span className="whitespace-nowrap text-xs text-gray-600">
+                  Обновлено из Jira: {new Date(syncedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
             </div>
