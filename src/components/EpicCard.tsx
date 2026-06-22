@@ -5,7 +5,7 @@ import { Target } from "lucide-react";
 import type { Epic, Member } from "@/data/sprint";
 import { progressColor } from "@/lib/format";
 import { Avatar } from "./Avatar";
-import { PriorityBadge, StatusBadge } from "./Badges";
+import { StatusBadge } from "./Badges";
 import { EpicGraphModal } from "./EpicGraphModal";
 
 function ProgressBar({ label, value }: { label: string; value?: number }) {
@@ -113,12 +113,12 @@ export function EpicCard({
           );
         })()}
 
-      <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
-        <PriorityBadge priority={epic.priority} />
-        <LinkPill href={epic.links.jira} label="Jira" />
-        {epic.links.checklist && <LinkPill href={epic.links.checklist} label="Чек-лист" />}
-        {epic.links.testChannel && <LinkPill href={epic.links.testChannel} label="Тест-канал" />}
-      </div>
+      {(epic.links.checklist || epic.links.testChannel) && (
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+          {epic.links.checklist && <LinkPill href={epic.links.checklist} label="Чек-лист" />}
+          {epic.links.testChannel && <LinkPill href={epic.links.testChannel} label="Тест-канал" />}
+        </div>
+      )}
 
       {owners && owners.length > 0 && (
         <div className="flex items-center gap-2 border-t border-white/10 pt-2.5">
