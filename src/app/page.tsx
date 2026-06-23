@@ -7,6 +7,7 @@ import { fmtRange, sprintCompletion, sprintProgress } from "@/lib/format";
 import { Avatar } from "@/components/Avatar";
 import { EpicCard } from "@/components/EpicCard";
 import { BoardDataProvider, useBoardData } from "@/components/BoardDataProvider";
+import { SyncButton } from "@/components/SyncButton";
 
 // Спец-режим зрителя: показать только свободный пул «Можно взять».
 const FREE_VIEW = "__free__";
@@ -117,6 +118,7 @@ function HomeInner() {
                   Обновлено из Jira: {new Date(syncedAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
+              <SyncButton />
             </div>
             <p className="mt-0.5 text-xs text-slate-400">
               {fmtRange(sprint)} · день {dayNum} из {totalDays} ·{" "}

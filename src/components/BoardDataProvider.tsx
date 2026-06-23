@@ -2,7 +2,7 @@
 // Загружает данные из /api/sprint/active.
 // Если API недоступен (нет DB_URL и т.п.) — использует статический sprint.ts как fallback.
 "use client";
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Epic, Member, Assignment, Sprint } from "@/data/sprint";
 import {
   epics as staticEpics,
@@ -19,6 +19,7 @@ export interface BoardData {
   syncedAt: string | null;
   loading: boolean;
   error: string | null;
+  refetch: () => Promise<void>;
 }
 
 const BoardDataContext = createContext<BoardData | null>(null);
@@ -63,51 +64,58 @@ export function BoardDataProvider({ children }: { children: ReactNode }) {
     syncedAt: null,
     loading: true,
     error: null,
+    refetch: async () => {},
   });
 
-  useEffect(() => {
-    fetch("/api/sprint/active")
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`API ${res.status}`);
-        const d = await res.json();
+  // Загрузка агрегата доски. Используется при маунте и при ручном синке
+  // (кнопка «Обновить»). Не сбрасывает данные в loading — обновляет «по месту».
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/sprint/active");
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const d = await res.json();
 
-        // Группируем assignments: memberId → { epicKeys[], note }
-        // note хранится по строкам (member, epic); берём первую непустую заметку участника.
-        const asgMap = new Map<string, { epicKeys: string[]; note?: string }>();
-        for (const a of d.assignments) {
-          const key = a.memberId as string;
-          if (!asgMap.has(key)) asgMap.set(key, { epicKeys: [] });
-          const entry = asgMap.get(key)!;
-          entry.epicKeys.push(a.jiraKey as string);
-          if (!entry.note && a.note) entry.note = a.note as string;
-        }
-        const assignments: Assignment[] = Array.from(asgMap.entries()).map(
-          ([memberId, { epicKeys, note }]) => ({ memberId, epicKeys, note })
-        );
+      // Группируем assignments: memberId → { epicKeys[], note }
+      // note хранится по строкам (member, epic); берём первую непустую заметку участника.
+      const asgMap = new Map<string, { epicKeys: string[]; note?: string }>();
+      for (const a of d.assignments) {
+        const key = a.memberId as string;
+        if (!asgMap.has(key)) asgMap.set(key, { epicKeys: [] });
+        const entry = asgMap.get(key)!;
+        entry.epicKeys.push(a.jiraKey as string);
+        if (!entry.note && a.note) entry.note = a.note as string;
+      }
+      const assignments: Assignment[] = Array.from(asgMap.entries()).map(
+        ([memberId, { epicKeys, note }]) => ({ memberId, epicKeys, note })
+      );
 
-        setData({
-          sprint: {
-            number: d.sprint.number,
-            start: d.sprint.start,
-            endInclusive: d.sprint.end,
-            confluenceUrl: d.sprint.confluenceUrl,
-          },
-          epics: (d.epics as Record<string, unknown>[]).map(apiEpicToEpic),
-          members: (d.members as Record<string, unknown>[]).map(apiMemberToMember),
-          assignments,
-          syncedAt: d.syncedAt,
-          loading: false,
-          error: null,
-        });
-      })
-      .catch((err: unknown) => {
-        console.warn("API недоступен, используем sprint.ts:", err);
-        setData((prev) => ({ ...prev, loading: false, error: String(err) }));
-      });
+      setData((prev) => ({
+        ...prev,
+        sprint: {
+          number: d.sprint.number,
+          start: d.sprint.start,
+          endInclusive: d.sprint.end,
+          confluenceUrl: d.sprint.confluenceUrl,
+        },
+        epics: (d.epics as Record<string, unknown>[]).map(apiEpicToEpic),
+        members: (d.members as Record<string, unknown>[]).map(apiMemberToMember),
+        assignments,
+        syncedAt: d.syncedAt,
+        loading: false,
+        error: null,
+      }));
+    } catch (err: unknown) {
+      console.warn("API недоступен, используем sprint.ts:", err);
+      setData((prev) => ({ ...prev, loading: false, error: String(err) }));
+    }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   return (
-    <BoardDataContext.Provider value={data}>
+    <BoardDataContext.Provider value={{ ...data, refetch: load }}>
       {children}
     </BoardDataContext.Provider>
   );
