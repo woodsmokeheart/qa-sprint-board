@@ -40,10 +40,28 @@ function Bar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative group inline-flex items-center">
+      <svg className="w-3.5 h-3.5 text-gray-600 hover:text-gray-400 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <circle cx="12" cy="12" r="10" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-4m0-4h.01" />
+      </svg>
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-xs text-gray-300 leading-relaxed shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50">
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-800" />
+      </span>
+    </span>
+  );
+}
+
+function Stat({ label, value, sub, tooltip }: { label: string; value: string | number; sub?: string; tooltip?: string }) {
   return (
     <div className="bg-white/5 rounded-xl px-4 py-3">
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
+        {label}
+        {tooltip && <InfoTooltip text={tooltip} />}
+      </div>
       <div className="text-xl font-bold text-white">{value}</div>
       {sub && <div className="text-xs text-gray-500 mt-0.5">{sub}</div>}
     </div>
@@ -98,18 +116,32 @@ export function SprintStatsModal({ sprintId, onClose }: { sprintId: number; onCl
             <div className="px-6 py-5 space-y-6">
               {/* Overview cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Stat label="Закрыто эпиков" value={`${stats.overview.donePct}%`}
-                  sub={`${stats.overview.statusCounts["done"] ?? 0} из ${stats.overview.total}`} />
-                <Stat label="Цели выполнены"
+                <Stat
+                  label="Закрыто эпиков"
+                  value={`${stats.overview.donePct}%`}
+                  sub={`${stats.overview.statusCounts["done"] ?? 0} из ${stats.overview.total}`}
+                  tooltip="Доля эпиков со статусом «Done» из всех эпиков спринта. Статус берётся из Jira и кэшируется при синке."
+                />
+                <Stat
+                  label="Цели выполнены"
                   value={`${stats.overview.goals.total > 0 ? Math.round((stats.overview.goals.done / stats.overview.goals.total) * 100) : 0}%`}
-                  sub={`${stats.overview.goals.done} из ${stats.overview.goals.total}`} />
-                <Stat label="Avg firstPass"
+                  sub={`${stats.overview.goals.done} из ${stats.overview.goals.total}`}
+                  tooltip="Цель считается выполненной, если у эпика заполнено поле «Цель спринта» и стоит галочка «Цель ✓» в админке. Учитываются только эпики с заполненной целью."
+                />
+                <Stat
+                  label="Avg firstPass"
                   value={stats.overview.avgFirstPass !== null ? `${stats.overview.avgFirstPass}%` : "—"}
-                  sub="качество проходки" />
-                <Stat label="Баги найдено" value={stats.overview.totalBugs}
+                  sub="качество проходки"
+                  tooltip="Средний % прохождения чеклиста с первой попытки по всем эпикам, где значение выставлено вручную в админке (нули без правок не учитываются). Чем выше — тем меньше дыр при первичном тестировании."
+                />
+                <Stat
+                  label="Баги найдено"
+                  value={stats.overview.totalBugs}
                   sub={stats.overview.crit.total > 0
                     ? `критбизнес: ${stats.overview.crit.done}/${stats.overview.crit.total}`
-                    : "по графам эпиков"} />
+                    : "по графам эпиков"}
+                  tooltip="Сумма дочерних задач типа «Bug» из графов всех эпиков спринта (кэшируются при синке с Jira). Не включает баги в связанных задачах."
+                />
               </div>
 
               {/* Status breakdown */}
@@ -155,7 +187,10 @@ export function SprintStatsModal({ sprintId, onClose }: { sprintId: number; onCl
               {/* Per-person */}
               {stats.persons.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">По тестировщикам</h3>
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">По тестировщикам</h3>
+                    <InfoTooltip text="Close rate — закрытые эпики из назначенных. FP — средний firstPass %. RT — средний retest %. Баги — из графов назначенных эпиков. Сортировка по close rate." />
+                  </div>
                   <div className="space-y-2">
                     {stats.persons.map((p) => (
                       <div key={p.id} className="bg-white/5 rounded-xl px-4 py-3">
