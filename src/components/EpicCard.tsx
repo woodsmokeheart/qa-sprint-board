@@ -91,16 +91,16 @@ export function EpicCard({
 
       <h3 className="text-sm font-semibold leading-snug text-slate-100">{epic.title}</h3>
 
-      <div className="rounded-lg bg-white/5 p-2.5 ring-1 ring-inset ring-white/10">
+      <div className={`rounded-lg bg-white/5 p-2.5 ring-1 ring-inset ring-white/10${epic.task ? " mt-auto" : ""}`}>
         <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-sky-300/80">
           <Target className="h-3 w-3" />
           Цель спринта
         </div>
-        <p className="text-xs leading-relaxed text-slate-200">{epic.goal}</p>
+        <p className="line-clamp-2 min-h-[2.4375rem] text-xs leading-relaxed text-slate-200">{epic.goal}</p>
       </div>
 
       {!epic.task && (
-        <div className="flex flex-col gap-2">
+        <div className="mt-auto flex flex-col gap-2">
           <ProgressBar label="Тесты по чек-листу на stage" value={epic.progress?.firstPass} />
           <ProgressBar label="Ретесты на stage" value={epic.progress?.retest} />
         </div>
