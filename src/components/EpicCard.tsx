@@ -99,19 +99,12 @@ export function EpicCard({
         <p className="text-xs leading-relaxed text-slate-200">{epic.goal}</p>
       </div>
 
-      {!epic.task &&
-        (() => {
-          // Две шкалы всегда. Если идут ретесты — первая проходка по чек-листу
-          // уже завершена, поэтому firstPass принимаем за 100%.
-          const inRetest = epic.progress?.retest !== undefined;
-          const firstPass = inRetest ? 100 : epic.progress?.firstPass;
-          return (
-            <div className="flex flex-col gap-2">
-              <ProgressBar label="Тесты по чек-листу на stage" value={firstPass} />
-              <ProgressBar label="Ретесты на stage" value={epic.progress?.retest} />
-            </div>
-          );
-        })()}
+      {!epic.task && (
+        <div className="flex flex-col gap-2">
+          <ProgressBar label="Тесты по чек-листу на stage" value={epic.progress?.firstPass} />
+          <ProgressBar label="Ретесты на stage" value={epic.progress?.retest} />
+        </div>
+      )}
 
       {(epic.links.checklist || epic.links.testChannel) && (
         <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
