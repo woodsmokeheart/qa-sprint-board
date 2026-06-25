@@ -113,7 +113,7 @@ export default function AdminEpics() {
   return (
     <div className="space-y-6">
       <div className="flex items-end justify-between">
-        <h1 className="text-2xl font-bold">Эпики — Спринт {data.sprint.number}</h1>
+        <h1 className="text-2xl font-bold">Задачи — Спринт {data.sprint.number}</h1>
       </div>
 
       {/* Добавить тикет */}

@@ -9,7 +9,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         <span className="text-gray-500 text-sm">Admin</span>
         <nav className="ml-auto flex gap-4 text-sm">
           <Link href="/admin" className="text-gray-400 hover:text-white">Дашборд</Link>
-          <Link href="/admin/epics" className="text-gray-400 hover:text-white">Эпики</Link>
+          <Link href="/admin/epics" className="text-gray-400 hover:text-white">Задачи</Link>
           <Link href="/admin/sprints" className="text-gray-400 hover:text-white">Спринты</Link>
           <Link href="/" className="text-gray-400 hover:text-white">← Доска</Link>
         </nav>
