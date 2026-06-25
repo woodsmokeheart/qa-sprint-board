@@ -311,7 +311,11 @@ export default function AdminEpics() {
                     title="Удалить с борды"
                     className="text-gray-600 hover:text-rose-400 disabled:opacity-30 transition-colors"
                   >
-                    {deleting[epic.id] ? "…" : "✕"}
+                    {deleting[epic.id] ? "…" : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                      </svg>
+                    )}
                   </button>
                 </td>
               </tr>
