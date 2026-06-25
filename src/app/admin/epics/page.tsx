@@ -19,6 +19,7 @@ export default function AdminEpics() {
   const [addKey, setAddKey] = useState("");
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<Record<number, boolean>>({});
 
   const load = useCallback(async () => {
     const res = await fetch("/api/sprint/active");
@@ -93,6 +94,17 @@ export default function AdminEpics() {
       setAddError("Сеть недоступна");
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function deleteEpic(id: number, key: string) {
+    if (!confirm(`Удалить ${key} с борды?`)) return;
+    setDeleting((s) => ({ ...s, [id]: true }));
+    try {
+      await fetch(`/api/epics/${id}`, { method: "DELETE" });
+      await load();
+    } finally {
+      setDeleting((s) => ({ ...s, [id]: false }));
     }
   }
 
@@ -207,6 +219,16 @@ export default function AdminEpics() {
                       ✗ {errors[epic.id]}
                     </span>
                   )}
+                </td>
+                <td className="py-2 pl-2">
+                  <button
+                    onClick={() => deleteEpic(epic.id, epic.jiraKey)}
+                    disabled={deleting[epic.id]}
+                    title="Удалить с борды"
+                    className="text-gray-600 hover:text-rose-400 disabled:opacity-30 transition-colors"
+                  >
+                    {deleting[epic.id] ? "…" : "✕"}
+                  </button>
                 </td>
               </tr>
             ))}
