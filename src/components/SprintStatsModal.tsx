@@ -40,27 +40,34 @@ function Bar({ pct, color }: { pct: number; color: string }) {
   );
 }
 
-function InfoTooltip({ text }: { text: string }) {
+function InfoTooltip({ text, align = "center" }: { text: string; align?: "center" | "right" }) {
+  const posClass = align === "right"
+    ? "right-0"
+    : "left-1/2 -translate-x-1/2";
+  const arrowClass = align === "right"
+    ? "right-3"
+    : "left-1/2 -translate-x-1/2";
+
   return (
     <span className="relative group inline-flex items-center">
       <svg className="w-3.5 h-3.5 text-gray-600 hover:text-gray-400 cursor-help transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <circle cx="12" cy="12" r="10" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-4m0-4h.01" />
       </svg>
-      <span className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-xs text-gray-300 leading-relaxed shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50">
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-800" />
+      <span className={`pointer-events-none absolute top-full ${posClass} mt-2 w-56 rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-xs text-gray-300 leading-relaxed shadow-xl opacity-0 group-hover:opacity-100 transition-opacity z-50`}>
+        <span className={`absolute bottom-full ${arrowClass} border-4 border-transparent border-b-gray-800`} />
         {text}
       </span>
     </span>
   );
 }
 
-function Stat({ label, value, sub, tooltip }: { label: string; value: string | number; sub?: string; tooltip?: string }) {
+function Stat({ label, value, sub, tooltip, tooltipAlign }: { label: string; value: string | number; sub?: string; tooltip?: string; tooltipAlign?: "center" | "right" }) {
   return (
     <div className="bg-white/5 rounded-xl px-4 py-3">
       <div className="text-xs text-gray-500 mb-1 flex items-center gap-1.5">
         {label}
-        {tooltip && <InfoTooltip text={tooltip} />}
+        {tooltip && <InfoTooltip text={tooltip} align={tooltipAlign} />}
       </div>
       <div className="text-xl font-bold text-white">{value}</div>
       {sub && <div className="text-xs text-gray-500 mt-0.5">{sub}</div>}
@@ -133,6 +140,7 @@ export function SprintStatsModal({ sprintId, onClose }: { sprintId: number; onCl
                   value={stats.overview.avgFirstPass !== null ? `${stats.overview.avgFirstPass}%` : "—"}
                   sub="качество проходки"
                   tooltip="Средний % прохождения чеклиста с первой попытки по всем эпикам, где значение выставлено вручную в админке (нули без правок не учитываются). Чем выше — тем меньше дыр при первичном тестировании."
+                  tooltipAlign="right"
                 />
                 <Stat
                   label="Баги найдено"
@@ -141,6 +149,7 @@ export function SprintStatsModal({ sprintId, onClose }: { sprintId: number; onCl
                     ? `критбизнес: ${stats.overview.crit.done}/${stats.overview.crit.total}`
                     : "по графам эпиков"}
                   tooltip="Сумма дочерних задач типа «Bug» из графов всех эпиков спринта (кэшируются при синке с Jira). Не включает баги в связанных задачах."
+                  tooltipAlign="right"
                 />
               </div>
 
