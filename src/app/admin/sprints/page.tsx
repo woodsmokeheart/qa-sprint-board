@@ -1,6 +1,7 @@
 // src/app/admin/sprints/page.tsx
 "use client";
 import { useEffect, useState } from "react";
+import { SprintStatsModal } from "@/components/SprintStatsModal";
 
 interface Sprint {
   id: number; number: number; start: string; end: string;
@@ -12,6 +13,7 @@ export default function AdminSprints() {
   const [form, setForm] = useState({ number: "", start: "", end: "", confluenceUrl: "" });
   const [creating, setCreating] = useState(false);
   const [activating, setActivating] = useState<number | null>(null);
+  const [statsId, setStatsId] = useState<number | null>(null);
 
   async function loadSprints() {
     const res = await fetch("/api/sprint");
@@ -53,6 +55,7 @@ export default function AdminSprints() {
 
   return (
     <div className="space-y-8">
+      {statsId && <SprintStatsModal sprintId={statsId} onClose={() => setStatsId(null)} />}
       <h1 className="text-2xl font-bold">Спринты</h1>
 
       <div className="space-y-2">
@@ -76,16 +79,27 @@ export default function AdminSprints() {
                 {activating === s.id ? "Активируем..." : "Активировать"}
               </button>
             )}
-            {s.confluenceUrl && (
-              <a
-                href={s.confluenceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="ml-auto text-xs text-sky-400 hover:underline"
+            <div className="ml-auto flex items-center gap-3">
+              {s.confluenceUrl && (
+                <a
+                  href={s.confluenceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-sky-400 hover:underline"
+                >
+                  Confluence →
+                </a>
+              )}
+              <button
+                onClick={() => setStatsId(s.id)}
+                className="text-xs px-3 py-1 rounded-lg border border-white/10 text-gray-400 hover:border-indigo-500/50 hover:text-indigo-300 transition flex items-center gap-1.5"
               >
-                Confluence →
-              </a>
-            )}
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Статистика
+              </button>
+            </div>
           </div>
         ))}
       </div>
