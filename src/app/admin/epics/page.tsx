@@ -70,13 +70,17 @@ export default function AdminEpics() {
   async function addEpic(e: React.FormEvent) {
     e.preventDefault();
     if (!data || !addKey.trim()) return;
+    // Парсим полную Jira-ссылку → вытаскиваем только ключ тикета
+    const rawInput = addKey.trim();
+    const urlMatch = rawInput.match(/\/browse\/([A-Z]+-\d+)/i);
+    const resolvedKey = urlMatch ? urlMatch[1].toUpperCase() : rawInput.toUpperCase();
     setAdding(true);
     setAddError(null);
     try {
       const res = await fetch("/api/epics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sprintId: data.sprint.id, jiraKey: addKey.trim(), team: "CORE" }),
+        body: JSON.stringify({ sprintId: data.sprint.id, jiraKey: resolvedKey, team: "CORE" }),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({})) as { error?: string };

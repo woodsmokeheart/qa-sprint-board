@@ -19,7 +19,10 @@ export async function POST(request: Request) {
   if (!isNonEmptyString(body.jiraKey)) return badRequest("jiraKey обязателен");
   if (!isNonEmptyString(body.team)) return badRequest("team обязателен");
 
-  const key = body.jiraKey.trim().toUpperCase();
+  // Поддержка полной Jira-ссылки: https://...atlassian.net/browse/SD-1234 → SD-1234
+  const rawKey = body.jiraKey.trim();
+  const urlMatch = rawKey.match(/\/browse\/([A-Z]+-\d+)/i);
+  const key = (urlMatch ? urlMatch[1] : rawKey).toUpperCase();
 
   try {
     // Определяем team из QA-поля Jira; fallback — body.team (CORE по умолчанию)
