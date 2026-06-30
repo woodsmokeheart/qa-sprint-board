@@ -85,6 +85,7 @@ export default function AdminEpics() {
       firstPassDone: epic.firstPassDone,
       retestDone: epic.retestDone,
       smokesDone: epic.smokesDone,
+      parallel: epic.parallel,
     });
     setSaveError(null);
   }
