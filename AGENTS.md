@@ -15,9 +15,10 @@
 - **Есть бэкенд (BFF).** Данные тянутся из Neon Postgres + Jira через API
   (`/api/sprint/active`). `src/data/sprint.ts` остаётся как **readonly-архив
   спринта 10** и fallback, если API недоступен.
-- Операционные данные (статусы, retest %, исполнители, тайтлы) — из Jira
-  автоматически (Vercel Cron каждые 30 мин). QA-специфику (firstPass %, флаги,
-  назначения, состав спринта) лид (Denis) правит через мини-админку `/admin`.
+- Операционные данные (статусы, retest %, исполнители, тайтлы, назначения) —
+  из Jira **по кнопке «Обновить из Jira»** на борде (авто-крона нет). QA-специфику
+  (firstPass %, флаги, цели, состав спринта) лид (Denis) правит через мини-админку
+  `/admin`.
 - Стек: **Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 ·
   Neon Postgres (@neondatabase/serverless) · Vitest**. Деплой на Vercel.
 
